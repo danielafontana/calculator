@@ -13,6 +13,7 @@
     'header'
     'display'
     'form';
+  align-content: start;
   gap: var(--space-4);
   width: 100%;
   min-height: 100dvh;
@@ -45,8 +46,8 @@
   grid-area: form;
   display: grid;
   grid-template-areas:
-    'fields'
     'keys'
+    'fields'
     'actions';
   gap: var(--space-4);
   align-content: start;
