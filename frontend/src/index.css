@@ -1,0 +1,89 @@
+:root {
+  --font-display: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-lcd: 'Chivo Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-device: 22px;
+  --radius-lcd: 10px;
+  --radius-key: 10px;
+  --radius-field: 8px;
+
+  /* Page and instrument body */
+  --page: #e6ebf1;
+  --body: #28313c;
+  --body-ink: #eef2f6;
+  --body-ink-soft: #b7c2cf;
+
+  /* Keys */
+  --key: #45505e;
+  --key-ink: #f1f4f7;
+  --key-highlight: rgb(255 255 255 / 0.08);
+  --key-edge: #1a2028;
+  --key-selected: #d7dfe8;
+  --key-selected-ink: #1d242d;
+
+  /* Equals key */
+  --accent: #e3a33b;
+  --accent-ink: #2a1c05;
+  --accent-edge: #9a6a1c;
+  --accent-disabled: #59606a;
+  --accent-disabled-ink: #aab3bd;
+
+  /* LCD */
+  --lcd: #c9d6b8;
+  --lcd-ink: #1e2a19;
+  --lcd-ink-soft: #5d6c53;
+  --lcd-bezel: #1c232b;
+
+  /* Fields */
+  --field: #1f262f;
+  --field-ink: #f1f4f7;
+  --field-border: #56616f;
+  --field-placeholder: #7f8a97;
+
+  /* Feedback */
+  --danger: #f6d5d1;
+  --danger-ink: #5c130d;
+  --danger-strong: #c2352b;
+  --danger-on-body: #ffb4aa;
+  --focus: #7fb6ff;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0f1419;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--body-ink);
+  font-family: var(--font-display);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}

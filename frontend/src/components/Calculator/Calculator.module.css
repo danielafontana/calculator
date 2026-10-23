@@ -1,0 +1,198 @@
+/* Mobile-first: the instrument fills the screen; it becomes a device on
+   larger screens and splits into two columns from 768px. */
+
+.page {
+  display: grid;
+  min-height: 100dvh;
+  place-items: start center;
+}
+
+.instrument {
+  display: grid;
+  grid-template-areas:
+    'header'
+    'display'
+    'form';
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 100dvh;
+  padding: var(--space-4);
+  background: var(--body);
+  color: var(--body-ink);
+}
+
+.header {
+  grid-area: header;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--body-ink-soft);
+}
+
+.display {
+  grid-area: display;
+}
+
+.form {
+  grid-area: form;
+  display: grid;
+  grid-template-areas:
+    'fields'
+    'keys'
+    'actions';
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.keys {
+  grid-area: keys;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 0.875rem;
+  color: var(--body-ink-soft);
+}
+
+.fields {
+  grid-area: fields;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+
+.actions {
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-2);
+}
+
+.clear,
+.equals {
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--radius-key);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 80ms ease-out,
+    box-shadow 80ms ease-out;
+}
+
+.clear {
+  background: var(--key);
+  color: var(--key-ink);
+  box-shadow:
+    inset 0 1px 0 var(--key-highlight),
+    0 3px 0 var(--key-edge);
+}
+
+.equals {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1.0625rem;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 3px 0 var(--accent-edge);
+}
+
+.equals span {
+  margin-right: var(--space-1);
+  font-size: 1.25rem;
+}
+
+.clear:active,
+.equals:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--key-edge);
+}
+
+.equals:disabled {
+  background: var(--accent-disabled);
+  color: var(--accent-disabled-ink);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.clear:focus-visible,
+.equals:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (min-width: 480px) {
+  .page {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .instrument {
+    max-width: 440px;
+    min-height: auto;
+    padding: var(--space-5);
+    border-radius: var(--radius-device);
+    box-shadow:
+      inset 0 1px 0 var(--key-highlight),
+      0 18px 40px -18px rgb(10 20 35 / 0.55),
+      0 2px 0 var(--key-edge);
+  }
+}
+
+@media (min-width: 768px) {
+  .page {
+    place-items: center;
+  }
+
+  .instrument {
+    max-width: 720px;
+    padding: var(--space-6);
+  }
+
+  .form {
+    grid-template-columns: 3fr 2fr;
+    grid-template-areas:
+      'keys fields'
+      'keys actions';
+    column-gap: var(--space-5);
+  }
+
+  .fields {
+    grid-template-columns: 1fr;
+    align-content: start;
+  }
+
+  .actions {
+    align-self: end;
+  }
+}
+
+@media (min-width: 1024px) {
+  .instrument {
+    max-width: 880px;
+    gap: var(--space-5);
+  }
+
+  .title {
+    font-size: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clear,
+  .equals {
+    transition: none;
+  }
+}
