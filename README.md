@@ -25,7 +25,7 @@ A aplicação faz sete operações: soma, subtração, multiplicação, divisão
 │       /api/*   → proxy_pass http://backend:8080 (rede interna)  │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ HTTP, rede Docker (porta não publicada)
-┌───────────────────────────────▼──────────── Go 1.26 net/http ───┐
+┌───────────────────────────────▼──────────── Go 1.27 net/http ───┐
 │ middleware: Logger → Recover → CORS → [RateLimit → RequireJSON] │
 │        │                                                        │
 │ handlers   parse JSON, valida (models), chama service, serializa│
@@ -62,8 +62,10 @@ frontend/
 
 ## 3. Prerequisites
 
-- [Go 1.22+](https://go.dev/dl/) (o `go.mod` declara 1.26 por causa das dependências atuais)
-- [Node.js 20+](https://nodejs.org/) (testado com Node 22)
+- [Go 1.27](https://go.dev/dl/), a linha estável mais recente (testado com 1.27.3)
+- [Node.js 24 LTS](https://nodejs.org/) (24.15 ou mais recente; testado com 24.22.1). O `frontend/.nvmrc` fixa a linha: com nvm, basta rodar `nvm use`
+
+O Node 20 não funciona, porque o Vitest e o jsdom exigem Node 24.15+.
 - [Docker](https://docs.docker.com/engine/install/) com o plugin Compose v2
 - Opcional: [golangci-lint v2](https://golangci-lint.run/) e `make`
 
