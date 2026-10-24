@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/danielafontana/calculator/backend/internal/httpjson"
@@ -66,14 +67,37 @@ func (h *Handler) Operations(w http.ResponseWriter, _ *http.Request) {
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	if err := dec.Decode(dst); err != nil {
-		return fmt.Errorf("invalid JSON payload: %w", err)
+		return payloadError(err)
 	}
 
 	if dec.More() {
-		return errors.New("invalid JSON payload: body must contain a single JSON object")
+		return errors.New("request body must contain a single JSON object")
 	}
 
 	return nil
+}
+
+// payloadError turns a decoding error into a message that is safe to return
+// to clients: it describes the problem without exposing Go types or parser
+// internals.
+func payloadError(err error) error {
+	var (
+		typeErr *json.UnmarshalTypeError
+		sizeErr *http.MaxBytesError
+	)
+
+	switch {
+	case errors.Is(err, io.EOF):
+		return errors.New("request body is empty")
+	case errors.As(err, &sizeErr):
+		return errors.New("request body is too large")
+	case errors.As(err, &typeErr) && typeErr.Field != "":
+		return fmt.Errorf("field %q has an invalid value", typeErr.Field)
+	case errors.As(err, &typeErr):
+		return errors.New("request body must be a JSON object")
+	default:
+		return errors.New("request body must be valid JSON")
+	}
 }
 
 // errorMappings translates sentinel errors into HTTP status and error code.

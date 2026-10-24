@@ -258,7 +258,13 @@ npm run test -- --coverage   # relatório de texto + HTML em coverage/index.html
 | Backend (`./internal/...`) | ≥ 85% | ~98% |
 | Frontend (statements) | ≥ 80% | ~98% |
 
-A configuração do Vitest falha o build se a cobertura do frontend ficar abaixo de 80%. O CI (`.github/workflows/ci.yml`) roda lint, testes, build e um smoke test com `docker compose`.
+A configuração do Vitest falha o build se a cobertura do frontend ficar abaixo de 80%. O CI (`.github/workflows/ci.yml`) roda a cada push, a cada PR e uma vez por semana. Ele executa:
+- lint, testes e build;
+- verificações de segurança: `govulncheck`, `npm audit`, assinaturas npm e Trivy nas imagens (falha com HIGH ou CRITICAL corrigível);
+- geração de SBOM (CycloneDX);
+- um smoke test com `docker compose`.
+
+O Dependabot mantém atualizadas as dependências Go e npm, as imagens Docker e as Actions. A análise completa de segurança, mapeada para o OWASP Top 10:2025, está em [SECURITY.md](SECURITY.md).
 
 ## 8. Design decisions
 
@@ -279,7 +285,7 @@ A configuração do Vitest falha o build se a cobertura do frontend ficar abaixo
 - **Na porcentagem**, quando `a × b` estoura mas o resultado final cabe, o cálculo usa `a × (b / 100)`.
 - **`VITE_API_URL` é build arg**, não variável de runtime, e fica vazia por padrão. O Vite embute o valor no bundle durante o build, e vazio significa requisições relativas (`/api/...`).
 
-**HTTPS e mesma origem.** O nginx termina o TLS (TLS 1.2/1.3 e HTTP/2), serve a SPA e repassa `/api/*` ao backend pela rede interna. Isso traz quatro vantagens:
+**HTTPS e mesma origem.** O nginx termina o TLS (TLS 1.2/1.3 e HTTP/2; no TLS 1.2, só cifras ECDHE + AEAD; no TLS 1.3, troca de chave híbrida pós-quântica X25519MLKEM768), serve a SPA e repassa `/api/*` ao backend pela rede interna. Isso traz quatro vantagens:
 - o tráfego entre navegador e servidor é cifrado;
 - o backend não fica exposto à internet;
 - o navegador fala com uma única origem, então o CORS deixa de ser necessário para o próprio frontend;
@@ -300,7 +306,9 @@ O nginx também não expõe a versão (`server_tokens off`).
 
 **Rate limiting.** Um token bucket por IP de cliente (`golang.org/x/time/rate`) devolve 429 com `Retry-After`, aplicado a `/calculate` e `/operations`. O `/health` fica de fora para que os health checks nunca recebam 429.
 - **Identificação do cliente:** atrás do nginx, todas as conexões vêm do IP do proxy. Por isso o backend usa o header `X-Real-IP`, mas só quando a conexão vem de um IP listado em `TRUSTED_PROXIES`. Um cliente direto não consegue escapar do limite forjando o header.
-- **Limpeza de memória:** buckets de clientes inativos são descartados após 10 minutos. A limpeza roda durante as próprias requisições, sem goroutine de fundo.
+- **IPv6 agrupado por /64:** um cliente IPv6 controla um /64 inteiro, então limitar por endereço seria fácil de contornar.
+- **Memória limitada:** buckets inativos são descartados após 10 minutos, e a tabela guarda no máximo 100 mil clientes (cerca de 16 MiB). Acima disso, clientes novos dividem um bucket de transbordo: um ataque com rotação de IPs é contido como grupo, sem afetar os clientes já conhecidos.
+- **Logs:** cada requisição registra `request_id` (gerado pelo nginx e devolvido no header `X-Request-ID`) e `client_ip` (o IP real, pela mesma regra de confiança). Assim dá para correlacionar os logs do nginx e do backend.
 - **Limitação:** o estado fica em memória e vale por instância. Com várias réplicas, o limite efetivo se multiplica, e o próximo passo seria um store compartilhado (Redis).
 - **`useOperations`** busca as operações na API e cai para a lista local se a API estiver fora do ar, para que a interface continue utilizável.
 - **`useCalculator`** descarta respostas de requisições substituídas por outras mais recentes, o que evita race conditions.

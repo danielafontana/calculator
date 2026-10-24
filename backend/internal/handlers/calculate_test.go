@@ -215,3 +215,36 @@ func TestHandler_Operations(t *testing.T) {
 		rec.Body.String())
 	calc.AssertExpectations(t)
 }
+
+func TestHandler_Calculate_PayloadErrorsHideInternals(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		body    string
+		wantMsg string
+	}{
+		{"empty body", ``, "request body is empty"},
+		{"malformed JSON", `{"operation":`, "request body must be valid JSON"},
+		{"not JSON", `hello`, "request body must be valid JSON"},
+		{"array instead of object", `[1,2]`, "request body must be a JSON object"},
+		{"operand as string", `{"operation":"add","a":"1","b":2}`, `field "a" has an invalid value`},
+		{"operand out of float64 range", `{"operation":"add","a":1,"b":1e400}`, `field "b" has an invalid value`},
+		{"operation as number", `{"operation":5,"a":1,"b":2}`, `field "operation" has an invalid value`},
+		{"multiple JSON values", `{"operation":"add","a":1,"b":2}{}`, "request body must contain a single JSON object"},
+		{"body too large", `{"operation":"add","a":1,"b":2,"pad":"` + strings.Repeat("x", 1<<20) + `"}`, "request body is too large"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := postCalculate(handlers.New(new(mockCalculator), "test"), tt.body)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, models.ErrorResponse{Error: tt.wantMsg, Code: models.CodeInvalidPayload}, decodeError(t, rec))
+			assert.NotContains(t, rec.Body.String(), "Go ")
+			assert.NotContains(t, rec.Body.String(), "models.")
+		})
+	}
+}

@@ -181,3 +181,39 @@ func TestClientIP(t *testing.T) {
 		})
 	}
 }
+
+func TestRateLimit_GroupsIPv6By64(t *testing.T) {
+	t.Parallel()
+
+	h := middleware.RateLimit(middleware.RateLimitConfig{RPS: 1, Burst: 1, Now: newClock().Now})(okHandler)
+
+	assert.Equal(t, http.StatusOK, serve(h, request("[2001:db8:1:2::1]:1")).Code)
+	assert.Equal(t, http.StatusTooManyRequests, serve(h, request("[2001:db8:1:2::ffff]:1")).Code,
+		"rotating addresses inside the same /64 does not reset the limit")
+	assert.Equal(t, http.StatusOK, serve(h, request("[2001:db8:1:3::1]:1")).Code, "another /64 is another client")
+}
+
+func TestRateLimit_MaxClientsBoundsMemory(t *testing.T) {
+	t.Parallel()
+
+	mw, store := middleware.NewRateLimit(middleware.RateLimitConfig{
+		RPS: 1, Burst: 2, MaxClients: 3, Now: newClock().Now,
+	})
+	h := mw(okHandler)
+
+	for _, ip := range []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"} {
+		require.Equal(t, http.StatusOK, serve(h, request(ip+":1")).Code)
+	}
+
+	// New clients beyond the cap share one overflow bucket (burst 2).
+	codes := []int{
+		serve(h, request("10.0.0.4:1")).Code,
+		serve(h, request("10.0.0.5:1")).Code,
+		serve(h, request("10.0.0.6:1")).Code,
+	}
+	assert.Equal(t, []int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests}, codes)
+	assert.Equal(t, 3, store.Size(), "the table never grows beyond MaxClients")
+
+	// Known clients keep their own allowance.
+	assert.Equal(t, http.StatusOK, serve(h, request("10.0.0.1:2")).Code)
+}
