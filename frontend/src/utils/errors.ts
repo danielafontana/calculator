@@ -12,6 +12,7 @@ const MESSAGES: Record<ApiErrorCode, string> = {
   INVALID_OPERATION: 'Operação não suportada pelo servidor.',
   INVALID_PAYLOAD: 'O servidor não entendeu a requisição.',
   UNSUPPORTED_MEDIA_TYPE: 'O servidor não entendeu a requisição.',
+  RATE_LIMITED: 'Muitos cálculos em pouco tempo. Aguarde alguns segundos e tente novamente.',
   INTERNAL_ERROR: 'O servidor encontrou um erro. Tente novamente em instantes.',
   NETWORK_ERROR: 'Sem conexão com o servidor. Verifique se a API está em execução.',
   TIMEOUT: 'O servidor demorou demais para responder. Tente novamente.',

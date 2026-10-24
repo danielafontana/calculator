@@ -13,6 +13,11 @@ services:
       # API is called from another origin.
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost:3443}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-10}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-20}
+      # The backend is only reachable from the Docker network, so any private
+      # peer is nginx; its X-Real-IP header identifies the real client.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     restart: unless-stopped
 
   frontend:
@@ -25,6 +30,9 @@ services:
       - "${HTTPS_PORT:-3443}:443"
     environment:
       PUBLIC_HTTPS_PORT: ${HTTPS_PORT:-3443}
+      # Keep 0 with the self-signed certificate; 31536000 with a real one.
+      HSTS_MAX_AGE: ${HSTS_MAX_AGE:-0}
+      CSP_CONNECT_SRC: ${CSP_CONNECT_SRC:-'self'}
     # Production: mount real certificates (fullchain.pem + privkey.pem).
     # Without them, a self-signed certificate is generated on startup.
     # volumes:

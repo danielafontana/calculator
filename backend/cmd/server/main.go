@@ -45,5 +45,5 @@ func run() error {
 
 	h := handlers.New(services.NewCalculator(), version)
 
-	return server.Run(ctx, ln, server.NewRouter(h, cfg.CORSOrigins, logger), cfg, logger)
+	return server.Run(ctx, ln, server.NewRouter(h, cfg, logger), cfg, logger)
 }

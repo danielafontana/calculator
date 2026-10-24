@@ -51,6 +51,17 @@ describe('calculate', () => {
     });
   });
 
+  it('maps 429 responses to RATE_LIMITED', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: 'too many requests', code: 'RATE_LIMITED' }, 429),
+    );
+
+    await expect(calculate({ operation: 'add', a: 1, b: 2 })).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      status: 429,
+    });
+  });
+
   it('handles 5xx responses without a JSON body', async () => {
     fetchMock.mockResolvedValue(new Response('Bad gateway', { status: 502 }));
 

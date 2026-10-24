@@ -14,6 +14,7 @@ const (
 	CodeOverflow             ErrorCode = "OVERFLOW"
 	CodeUndefinedResult      ErrorCode = "UNDEFINED_RESULT"
 	CodeUnsupportedMediaType ErrorCode = "UNSUPPORTED_MEDIA_TYPE"
+	CodeRateLimited          ErrorCode = "RATE_LIMITED"
 	CodeInternal             ErrorCode = "INTERNAL_ERROR"
 )
 

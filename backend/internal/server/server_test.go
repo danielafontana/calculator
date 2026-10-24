@@ -24,7 +24,7 @@ import (
 func newRouter() http.Handler {
 	h := handlers.New(services.NewCalculator(), "1.0.0")
 
-	return server.NewRouter(h, []string{"http://localhost:3000"}, slog.New(slog.DiscardHandler))
+	return server.NewRouter(h, config.Config{CORSOrigins: []string{"http://localhost:3000"}}, slog.New(slog.DiscardHandler))
 }
 
 // TestRouter exercises the full stack: router, middlewares, handlers and the
@@ -122,6 +122,36 @@ func TestRouter_Preflight(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 	assert.Equal(t, "http://localhost:3000", rec.Header().Get("Access-Control-Allow-Origin"))
+}
+
+func TestRouter_RateLimit(t *testing.T) {
+	t.Parallel()
+
+	h := handlers.New(services.NewCalculator(), "1.0.0")
+	router := server.NewRouter(h, config.Config{RateLimitRPS: 0.001, RateLimitBurst: 2}, slog.New(slog.DiscardHandler))
+
+	calculate := func() int {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/calculate",
+			strings.NewReader(`{"operation":"add","a":1,"b":2}`))
+		req.Header.Set("Content-Type", "application/json")
+
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		return rec.Code
+	}
+	get := func(path string) int {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+
+		return rec.Code
+	}
+
+	assert.Equal(t, http.StatusOK, calculate())
+	assert.Equal(t, http.StatusOK, get("/api/v1/operations"))
+	assert.Equal(t, http.StatusTooManyRequests, calculate(), "calculate and operations share the client bucket")
+	assert.Equal(t, http.StatusTooManyRequests, get("/api/v1/operations"))
+	assert.Equal(t, http.StatusOK, get("/api/v1/health"), "health checks are never rate limited")
 }
 
 func testConfig() config.Config {

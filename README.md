@@ -26,7 +26,7 @@ A aplicação faz sete operações: soma, subtração, multiplicação, divisão
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ HTTP, rede Docker (porta não publicada)
 ┌───────────────────────────────▼──────────── Go 1.26 net/http ───┐
-│ middleware: Logger(slog JSON) → Recover → CORS → [RequireJSON]  │
+│ middleware: Logger → Recover → CORS → [RateLimit → RequireJSON] │
 │        │                                                        │
 │ handlers   parse JSON, valida (models), chama service, serializa│
 │        │                                                        │
@@ -58,7 +58,7 @@ frontend/
     utils/                  validação, formatação, metadados das operações
 ```
 
-**Fluxo de uma requisição:** `POST /api/v1/calculate` → `Logger` → `Recover` → `CORS` → `RequireJSON` (415 se não for JSON) → `handlers.Calculate`, que decodifica, valida com `models.Validate` e chama `services.Calculate`. O resultado passa por verificação de `NaN`/`Inf`. A resposta 200 é serializada; erros sentinela viram 400, cada um com o seu `code`.
+**Fluxo de uma requisição:** `POST /api/v1/calculate` → `Logger` → `Recover` → `CORS` → `RateLimit` (429 se o IP estourou o limite) → `RequireJSON` (415 se não for JSON) → `handlers.Calculate`, que decodifica, valida com `models.Validate` e chama `services.Calculate`. O resultado passa por verificação de `NaN`/`Inf`. A resposta 200 é serializada; erros sentinela viram 400, cada um com o seu `code`.
 
 ## 3. Prerequisites
 
@@ -89,7 +89,7 @@ Monte o certificado real (por exemplo do Let's Encrypt, via certbot) em `/etc/ng
       - ./certs:/etc/nginx/certs:ro
 ```
 
-Com o certificado presente, o script de inicialização não gera o autoassinado. Em produção, use `HTTP_PORT=80` e `HTTPS_PORT=443`.
+Com o certificado presente, o script de inicialização não gera o autoassinado. Em produção, use `HTTP_PORT=80`, `HTTPS_PORT=443` e `HSTS_MAX_AGE=31536000`.
 
 Se quiser HTTPS local sem aviso do navegador, gere o certificado com o [mkcert](https://github.com/FiloSottile/mkcert) (`mkcert -cert-file certs/fullchain.pem -key-file certs/privkey.pem localhost 127.0.0.1`) e monte-o como acima. A CA do mkcert precisa estar confiada no sistema onde o navegador roda.
 
@@ -126,6 +126,17 @@ Sem `VITE_API_URL` definida, o frontend faz requisições relativas (`/api/...`)
 | `PORT` | `8080` | Porta HTTP |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Origens permitidas, separadas por vírgula (`*` libera todas) |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| `RATE_LIMIT_RPS` | `10` | Requisições por segundo por IP de cliente (`0` desliga) |
+| `RATE_LIMIT_BURST` | `20` | Rajada máxima permitida por IP |
+| `TRUSTED_PROXIES` | vazio | IPs/CIDRs autorizados a informar o IP real via `X-Real-IP` |
+
+**Variáveis do nginx** (container `frontend`)
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `PUBLIC_HTTPS_PORT` | `443` (`3443` no compose) | Porta usada no redirecionamento HTTP → HTTPS |
+| `HSTS_MAX_AGE` | `0` | `max-age` do HSTS. Mantenha `0` com o certificado autoassinado e use `31536000` com um certificado real |
+| `CSP_CONNECT_SRC` | `'self'` | Origens que a página pode chamar. Adicione a origem da API se `VITE_API_URL` apontar para fora |
 
 Os timeouts de leitura e escrita são de 10s. O servidor encerra de forma graciosa ao receber `SIGINT` ou `SIGTERM`: espera até 10s pelas requisições em andamento.
 
@@ -195,6 +206,7 @@ curl -s -X POST http://localhost:8080/api/v1/calculate -d '{}'
 | 400 | `OVERFLOW` | Resultado infinito (fora do range de float64) |
 | 400 | `UNDEFINED_RESULT` | Resultado `NaN` (ex.: `power` com base negativa e expoente fracionário) |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | `Content-Type` diferente de `application/json` |
+| 429 | `RATE_LIMITED` | Limite de requisições por IP excedido. O header `Retry-After` indica em quantos segundos tentar de novo. Não se aplica a `/health` |
 | 500 | `INTERNAL_ERROR` | Erro inesperado (o detalhe vai para o log, nunca para o cliente) |
 
 ### `GET /api/v1/health`
@@ -274,6 +286,22 @@ A configuração do Vitest falha o build se a cobertura do frontend ficar abaixo
 - o nginx limita o corpo das requisições em 1 MiB antes de chegar ao Go.
 
 O backend continua falando HTTP puro, mas só dentro da rede do Docker. JWT ou sessão só entram se o projeto passar a ter usuários, porque autenticação não substitui TLS e, numa SPA pública, um token sem login pode ser copiado por qualquer um.
+
+**Headers de segurança.** Ficam num snippet (`frontend/nginx/security-headers.inc.template`) incluído em todo bloco que responde, porque um `add_header` dentro de um `location` anula os herdados do `server`. São estes:
+- `Content-Security-Policy`: só scripts da própria origem; estilos e fontes também do Google Fonts; `connect-src 'self'`; `frame-ancestors 'none'`. Limita o estrago de um XSS.
+- `Strict-Transport-Security`: configurável e desligado (`max-age=0`) com o certificado autoassinado. Com HSTS ativo, o navegador passaria a exigir um certificado que ele mesmo rejeita, e o site ficaria inacessível.
+- `X-Frame-Options: DENY`, contra clickjacking.
+- `X-Content-Type-Options: nosniff`.
+- `Referrer-Policy: strict-origin-when-cross-origin`.
+- `Permissions-Policy`: câmera, microfone, geolocalização, pagamento e USB desligados.
+- `Cross-Origin-Opener-Policy: same-origin`.
+
+O nginx também não expõe a versão (`server_tokens off`).
+
+**Rate limiting.** Um token bucket por IP de cliente (`golang.org/x/time/rate`) devolve 429 com `Retry-After`, aplicado a `/calculate` e `/operations`. O `/health` fica de fora para que os health checks nunca recebam 429.
+- **Identificação do cliente:** atrás do nginx, todas as conexões vêm do IP do proxy. Por isso o backend usa o header `X-Real-IP`, mas só quando a conexão vem de um IP listado em `TRUSTED_PROXIES`. Um cliente direto não consegue escapar do limite forjando o header.
+- **Limpeza de memória:** buckets de clientes inativos são descartados após 10 minutos. A limpeza roda durante as próprias requisições, sem goroutine de fundo.
+- **Limitação:** o estado fica em memória e vale por instância. Com várias réplicas, o limite efetivo se multiplica, e o próximo passo seria um store compartilhado (Redis).
 - **`useOperations`** busca as operações na API e cai para a lista local se a API estiver fora do ar, para que a interface continue utilizável.
 - **`useCalculator`** descarta respostas de requisições substituídas por outras mais recentes, o que evita race conditions.
 
@@ -285,13 +313,14 @@ O backend continua falando HTTP puro, mas só dentro da rede do Docker. JWT ou s
 - **Sem persistência:** nenhum cálculo é armazenado, e não há histórico nem autenticação.
 - **Nomes de operação** diferenciam maiúsculas e minúsculas (`"ADD"` é inválido).
 - **Tamanho do corpo** da requisição limitado a 1 MiB (no nginx e no backend).
+- **Rate limit padrão:** 10 req/s por IP, com rajada de 20. Clientes atrás do mesmo NAT compartilham o limite.
 - **Certificado autoassinado** por padrão, válido para `localhost` e `127.0.0.1` por 365 dias. Serve só para uso local.
 
 ## 10. Future improvements
 
 - **Autenticação:** sessão em cookie `HttpOnly`/`SameSite` ou OIDC, quando houver usuários.
-- **Rate limiting** por IP no backend (429), usando o `X-Forwarded-For` enviado pelo nginx.
-- **Headers de segurança adicionais:** `Content-Security-Policy` e HSTS (este último só com certificado real).
+- **Rate limiting distribuído** (Redis) para rodar várias réplicas do backend com um limite único.
+- **CSP sem dependências externas:** servir as fontes localmente para remover o Google Fonts da política.
 - **Histórico:** persistir cálculos (PostgreSQL) com paginação, e no frontend uma lista dos últimos resultados reutilizáveis.
 - **WebSocket:** cálculo em tempo real enquanto o usuário digita e sincronização do histórico entre abas.
 - **Expressões:** avaliar expressões completas (`2 * (3 + 4)`) com parser próprio.

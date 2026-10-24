@@ -11,11 +11,15 @@ RUN npm run build
 
 FROM nginx:1.29-alpine
 RUN apk add --no-cache openssl
-# Port the browser uses for HTTPS (used in the HTTP -> HTTPS redirect) and the
-# backend address on the internal Docker network.
+# PUBLIC_HTTPS_PORT: port the browser uses for HTTPS (HTTP -> HTTPS redirect).
+# BACKEND_URL: backend address on the internal Docker network.
+# CSP_CONNECT_SRC: origins the page may call (add the API origin if external).
+# HSTS_MAX_AGE: keep 0 with self-signed certificates; 31536000 in production.
 ENV PUBLIC_HTTPS_PORT=443 \
-    BACKEND_URL=http://backend:8080
-COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+    BACKEND_URL=http://backend:8080 \
+    CSP_CONNECT_SRC="'self'" \
+    HSTS_MAX_AGE=0
+COPY nginx/default.conf.template nginx/security-headers.inc.template /etc/nginx/templates/
 COPY --chmod=755 nginx/15-self-signed-cert.sh /docker-entrypoint.d/15-self-signed-cert.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80 443
