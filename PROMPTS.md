@@ -152,3 +152,18 @@ Throughput at 100 connections went from ~1,000 to ~7,400 req/s, and stopping a r
 > *(The UI language must be English.)*
 
 **Result:** all interface text translated to English and numbers formatted with en-US conventions. Input now accepts only a dot as decimal separator; commas are rejected rather than guessed, since `1,000` is a thousands separator in English. Screenshots regenerated.
+
+> possuem estrutura de deploy independentes front e backend? tags independentes
+>
+> *(Do frontend and backend have independent deployment structures? Independent tags?)*
+
+> aplicar a proposta
+>
+> *(Apply the proposal.)*
+
+**Result:** independent versioning, CI and releases per component:
+- `backend/vX.Y.Z` and `frontend/vX.Y.Z` tags, plus a project tag `vX.Y.Z` for each delivered combination;
+- versions injected from the tag (backend `/health`, frontend `/version.json`);
+- CI split by path (`backend.yml`, `frontend.yml`, `stack.yml`);
+- tag-triggered releases that rerun the checks, scan, push to GHCR with SBOM and provenance, sign with cosign and create a GitHub release;
+- `docker compose` able to run any mix of released versions.
