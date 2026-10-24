@@ -2,21 +2,21 @@ import { ApiError } from '../services/api';
 import type { ApiErrorCode } from '../types/calculator';
 
 const MESSAGES: Record<ApiErrorCode, string> = {
-  DIVISION_BY_ZERO: 'Não é possível dividir por zero. Use um divisor diferente de zero.',
+  DIVISION_BY_ZERO: 'Cannot divide by zero. Use a non-zero divisor.',
   NEGATIVE_SQRT:
-    'Não existe raiz quadrada real de número negativo. Use um número maior ou igual a zero.',
-  OVERFLOW: 'O resultado é grande demais para ser representado. Tente números menores.',
-  UNDEFINED_RESULT: 'O resultado não é um número real. Revise a base e o expoente.',
-  INVALID_OPERAND: 'Os números informados não são válidos.',
-  MISSING_OPERAND: 'Preencha todos os números da operação.',
-  INVALID_OPERATION: 'Operação não suportada pelo servidor.',
-  INVALID_PAYLOAD: 'O servidor não entendeu a requisição.',
-  UNSUPPORTED_MEDIA_TYPE: 'O servidor não entendeu a requisição.',
-  RATE_LIMITED: 'Muitos cálculos em pouco tempo. Aguarde alguns segundos e tente novamente.',
-  INTERNAL_ERROR: 'O servidor encontrou um erro. Tente novamente em instantes.',
-  NETWORK_ERROR: 'Sem conexão com o servidor. Verifique se a API está em execução.',
-  TIMEOUT: 'O servidor demorou demais para responder. Tente novamente.',
-  UNEXPECTED_RESPONSE: 'O servidor respondeu em um formato inesperado.',
+    'Negative numbers have no real square root. Use a number greater than or equal to zero.',
+  OVERFLOW: 'The result is too large to represent. Try smaller numbers.',
+  UNDEFINED_RESULT: 'The result is not a real number. Check the base and the exponent.',
+  INVALID_OPERAND: 'The numbers entered are not valid.',
+  MISSING_OPERAND: 'Fill in every number for this operation.',
+  INVALID_OPERATION: 'The server does not support this operation.',
+  INVALID_PAYLOAD: 'The server could not understand the request.',
+  UNSUPPORTED_MEDIA_TYPE: 'The server could not understand the request.',
+  RATE_LIMITED: 'Too many calculations in a short time. Wait a few seconds and try again.',
+  INTERNAL_ERROR: 'The server hit an error. Try again in a moment.',
+  NETWORK_ERROR: 'Cannot reach the server. Check that the API is running.',
+  TIMEOUT: 'The server took too long to respond. Try again.',
+  UNEXPECTED_RESPONSE: 'The server sent an unexpected response.',
 };
 
 /** User-facing message for an API error code. */
@@ -27,6 +27,6 @@ export function errorMessage(code: ApiErrorCode): string {
 /** Normalizes any thrown value into an ApiError. */
 export function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err;
-  const message = err instanceof Error ? err.message : 'Erro desconhecido.';
+  const message = err instanceof Error ? err.message : 'Unknown error.';
   return new ApiError(message, 'UNEXPECTED_RESPONSE');
 }

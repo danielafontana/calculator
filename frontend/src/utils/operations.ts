@@ -11,46 +11,46 @@ export interface OperationMeta {
 
 export const OPERATION_META: Record<Operation, OperationMeta> = {
   add: {
-    label: 'Somar',
+    label: 'Add',
     symbol: '+',
-    description: 'Soma os dois números.',
-    operandLabels: ['Primeiro número', 'Segundo número'],
+    description: 'Adds the two numbers.',
+    operandLabels: ['First number', 'Second number'],
   },
   subtract: {
-    label: 'Subtrair',
+    label: 'Subtract',
     symbol: '−',
-    description: 'Subtrai o segundo número do primeiro.',
-    operandLabels: ['Primeiro número', 'Segundo número'],
+    description: 'Subtracts the second number from the first.',
+    operandLabels: ['First number', 'Second number'],
   },
   multiply: {
-    label: 'Multiplicar',
+    label: 'Multiply',
     symbol: '×',
-    description: 'Multiplica os dois números.',
-    operandLabels: ['Primeiro número', 'Segundo número'],
+    description: 'Multiplies the two numbers.',
+    operandLabels: ['First number', 'Second number'],
   },
   divide: {
-    label: 'Dividir',
+    label: 'Divide',
     symbol: '÷',
-    description: 'Divide o dividendo pelo divisor.',
-    operandLabels: ['Dividendo', 'Divisor'],
+    description: 'Divides the dividend by the divisor.',
+    operandLabels: ['Dividend', 'Divisor'],
   },
   power: {
-    label: 'Potência',
+    label: 'Power',
     symbol: 'xʸ',
-    description: 'Eleva a base ao expoente.',
-    operandLabels: ['Base', 'Expoente'],
+    description: 'Raises the base to the exponent.',
+    operandLabels: ['Base', 'Exponent'],
   },
   sqrt: {
-    label: 'Raiz',
+    label: 'Square root',
     symbol: '√',
-    description: 'Calcula a raiz quadrada do número.',
-    operandLabels: ['Número'],
+    description: 'Calculates the square root of the number.',
+    operandLabels: ['Number'],
   },
   percentage: {
-    label: 'Porcentagem',
+    label: 'Percentage',
     symbol: '%',
-    description: 'Calcula quanto é o percentual do valor.',
-    operandLabels: ['Valor', 'Percentual'],
+    description: 'Calculates the given percent of the value.',
+    operandLabels: ['Value', 'Percent'],
   },
 };
 
@@ -58,7 +58,7 @@ export function isUnary(operation: Operation): boolean {
   return OPERATION_META[operation].operandLabels.length === 1;
 }
 
-/** Human readable expression, e.g. "10 + 5", "√16" or "15% de 200". */
+/** Human readable expression, e.g. "10 + 5", "√16" or "15% of 200". */
 export function formatExpression(operation: Operation, a: number, b?: number): string {
   const fa = formatNumber(a);
   const fb = b === undefined ? '' : formatNumber(b);
@@ -68,7 +68,7 @@ export function formatExpression(operation: Operation, a: number, b?: number): s
     case 'power':
       return `${fa} ^ ${fb}`;
     case 'percentage':
-      return `${fb}% de ${fa}`;
+      return `${fb}% of ${fa}`;
     case 'add':
     case 'subtract':
     case 'multiply':

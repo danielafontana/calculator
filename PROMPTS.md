@@ -129,4 +129,26 @@ The original assignment (in English) was pasted with:
 >
 > *(Make all documentation and comments in English.)*
 
-**Result:** README, SECURITY.md and this file written in English; code comments and configuration were already in English. The user interface text remains in Brazilian Portuguese.
+**Result:** README, SECURITY.md and this file written in English; code comments and configuration were already in English.
+
+> avalie novamente se o projeto pode ser considerado seguro, escalável e se atende ao enunciado
+>
+> *(Evaluate again whether the project can be considered secure, scalable and compliant with the assignment.)*
+
+> sim
+>
+> *(Yes, apply the fixes.)*
+
+**Result:** a load test with `hey` and a horizontal scaling test found that nginx opened one backend connection per request (throughput fell from ~2,300 to ~1,000 req/s as concurrency grew) and ignored replicas added after startup. Fixes:
+- upstream keepalive, DNS re-resolution and safe retries in nginx;
+- CPU, memory and PID limits per container;
+- a non-root nginx with all Linux capabilities dropped;
+- coverage reports published by CI.
+
+Throughput at 100 connections went from ~1,000 to ~7,400 req/s, and stopping a replica under load no longer causes errors.
+
+> Idioma da UI deverá ser em inglês
+>
+> *(The UI language must be English.)*
+
+**Result:** all interface text translated to English and numbers formatted with en-US conventions. Input now accepts only a dot as decimal separator; commas are rejected rather than guessed, since `1,000` is a thousands separator in English. Screenshots regenerated.

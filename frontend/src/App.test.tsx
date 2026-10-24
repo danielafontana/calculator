@@ -14,6 +14,6 @@ describe('<App />', () => {
     vi.mocked(api.getOperations).mockResolvedValue([]);
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'Calculadora' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Calculator' })).toBeInTheDocument();
   });
 });

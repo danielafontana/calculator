@@ -13,9 +13,7 @@ describe('parseNumber', () => {
     ['-3', -3],
     ['+4', 4],
     ['2.5', 2.5],
-    ['2,5', 2.5],
     ['.5', 0.5],
-    [',5', 0.5],
     ['5.', 5],
     ['1e6', 1e6],
     ['-1.5E-3', -0.0015],
@@ -24,12 +22,17 @@ describe('parseNumber', () => {
     expect(parseNumber(input)).toBe(expected);
   });
 
-  it.each(['', ' ', 'abc', '1,000.5', '1.2.3', '--1', '1e', 'Infinity', 'NaN', '0x10', '1e400'])(
+  it.each(['', ' ', 'abc', '1.2.3', '--1', '1e', 'Infinity', 'NaN', '0x10', '1e400'])(
     'rejects %j',
     (input) => {
       expect(parseNumber(input)).toBeNull();
     },
   );
+
+  // A comma is never guessed as a decimal separator: "1,000" must not become 1.
+  it.each(['2,5', ',5', '1,000', '1,000.5'])('rejects commas in %j', (input) => {
+    expect(parseNumber(input)).toBeNull();
+  });
 });
 
 describe('validateForm', () => {
@@ -65,12 +68,12 @@ describe('formatNumber', () => {
   it.each([
     [0, '0'],
     [15, '15'],
-    [-2.5, '-2,5'],
-    [1234567.891, '1.234.567,891'],
-    [0.1 + 0.2, '0,3'],
+    [-2.5, '-2.5'],
+    [1234567.891, '1,234,567.891'],
+    [0.1 + 0.2, '0.3'],
     [1e20, '1e+20'],
-    [-1.5e-7, '-1,5e-7'],
-    [123456789012345680, '1,23456789e+17'],
+    [-1.5e-7, '-1.5e-7'],
+    [123456789012345680, '1.23456789e+17'],
   ])('formats %d as %s', (value, expected) => {
     expect(formatNumber(value)).toBe(expected);
   });
@@ -88,7 +91,7 @@ describe('operations', () => {
     expect(formatExpression('divide', 1, 2)).toBe('1 ÷ 2');
     expect(formatExpression('power', 2, 10)).toBe('2 ^ 10');
     expect(formatExpression('sqrt', 16)).toBe('√16');
-    expect(formatExpression('percentage', 200, 15)).toBe('15% de 200');
+    expect(formatExpression('percentage', 200, 15)).toBe('15% of 200');
   });
 
   it('marks only sqrt as unary', () => {
@@ -111,9 +114,9 @@ describe('type guards', () => {
 
 describe('errors', () => {
   it('has a message for every code', () => {
-    expect(errorMessage('DIVISION_BY_ZERO')).toMatch(/dividir por zero/);
-    expect(errorMessage('NETWORK_ERROR')).toMatch(/conexão/);
-    expect(errorMessage('RATE_LIMITED')).toMatch(/aguarde/i);
+    expect(errorMessage('DIVISION_BY_ZERO')).toMatch(/divide by zero/);
+    expect(errorMessage('NETWORK_ERROR')).toMatch(/reach the server/);
+    expect(errorMessage('RATE_LIMITED')).toMatch(/wait/i);
   });
 
   it('toApiError keeps ApiError and wraps anything else', () => {
@@ -125,7 +128,7 @@ describe('errors', () => {
     });
     expect(toApiError('weird')).toMatchObject({
       code: 'UNEXPECTED_RESPONSE',
-      message: 'Erro desconhecido.',
+      message: 'Unknown error.',
     });
   });
 });

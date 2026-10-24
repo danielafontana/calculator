@@ -14,15 +14,15 @@ export interface ResultDisplayProps {
 /** LCD-style panel showing the result, a loading indicator or an error. */
 export function ResultDisplay({ result, error, loading }: ResultDisplayProps) {
   return (
-    <section className={styles.display} aria-label="Resultado" aria-busy={loading}>
+    <section className={styles.display} aria-label="Result" aria-busy={loading}>
       {loading ? (
         <div role="status" className={styles.loading}>
           <span className={styles.spinner} aria-hidden="true" />
-          <span>Calculando…</span>
+          <span>Calculating…</span>
         </div>
       ) : error ? (
         <div role="alert" className={styles.error}>
-          <strong className={styles.errorTitle}>Não foi possível calcular</strong>
+          <strong className={styles.errorTitle}>Could not calculate</strong>
           <span>{errorMessage(error.code)}</span>
         </div>
       ) : result ? (
@@ -36,7 +36,7 @@ export function ResultDisplay({ result, error, loading }: ResultDisplayProps) {
         </div>
       ) : (
         <div className={styles.result}>
-          <p className={styles.expression}>Escolha a operação e informe os números</p>
+          <p className={styles.expression}>Choose an operation and enter the numbers</p>
           <span className={`${styles.value ?? ''} ${styles.idle ?? ''}`}>0</span>
         </div>
       )}

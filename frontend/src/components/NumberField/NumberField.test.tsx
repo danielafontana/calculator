@@ -17,11 +17,11 @@ describe('<NumberField />', () => {
   });
 
   it('links the error message to the input', () => {
-    render(<NumberField label="Base" value="x" onChange={vi.fn()} error="Valor inválido" />);
+    render(<NumberField label="Base" value="x" onChange={vi.fn()} error="Invalid value" />);
 
     const input = screen.getByLabelText('Base');
     expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(input).toHaveAccessibleDescription('Valor inválido');
+    expect(input).toHaveAccessibleDescription('Invalid value');
   });
 
   it('calls onBlur', async () => {
