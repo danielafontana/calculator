@@ -9,8 +9,9 @@ ARG VITE_API_URL=
 ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
 
-FROM nginx:1.29-alpine
-RUN apk add --no-cache openssl
+# Stable branch; apk upgrade pulls OS security fixes published after the tag.
+FROM nginx:1.30-alpine
+RUN apk upgrade --no-cache && apk add --no-cache openssl
 # PUBLIC_HTTPS_PORT: port the browser uses for HTTPS (HTTP -> HTTPS redirect).
 # BACKEND_URL: backend address on the internal Docker network.
 # CSP_CONNECT_SRC: origins the page may call (add the API origin if external).

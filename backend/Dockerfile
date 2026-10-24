@@ -6,8 +6,9 @@ COPY . .
 ARG VERSION=1.0.0
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./cmd/server
 
-FROM alpine:3.22
-RUN apk add --no-cache ca-certificates && adduser -D -H -u 10001 app
+FROM alpine:3.24
+# apk upgrade pulls OS security fixes published after the tag.
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates && adduser -D -H -u 10001 app
 COPY --from=build /app/server /server
 USER app
 EXPOSE 8080
