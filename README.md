@@ -17,9 +17,7 @@ A calculator with a **Go** REST API backend and a **React + TypeScript** fronten
 
 ## 1. Overview
 
-The app supports seven operations: addition, subtraction, multiplication, division, power, square root and percentage. The frontend validates input (comma or dot as decimal separator), calls the API and shows the result on an LCD-style display. Division by zero, square root of a negative number and overflow produce messages that explain the problem and how to fix it.
-
-The user interface text is in Brazilian Portuguese; code, comments and documentation are in English.
+The app supports seven operations: addition, subtraction, multiplication, division, power, square root and percentage. The frontend validates input, calls the API and shows the result on an LCD-style display. Division by zero, square root of a negative number and overflow produce messages that explain the problem and how to fix it.
 
 | Desktop (≥ 1024px) | Tablet (≥ 768px) | Mobile (< 480px) |
 |---|---|---|
@@ -317,7 +315,7 @@ Dependabot keeps Go and npm dependencies, Docker images and Actions up to date. 
 
 **Stateless.** Each request carries everything it needs; there is no session or database. The service scales horizontally without coordination, restarts without losing data and is deterministic to test.
 
-**float64.** It is the native number type of JSON (IEEE-754) and of JavaScript's `Number`, so both sides represent the same value without conversion. The cost is decimal imprecision (`0.1 + 0.2 = 0.30000000000000004`). The API returns the exact float, and the frontend formats it with up to 10 decimal places, showing `0,3`.
+**float64.** It is the native number type of JSON (IEEE-754) and of JavaScript's `Number`, so both sides represent the same value without conversion. The cost is decimal imprecision (`0.1 + 0.2 = 0.30000000000000004`). The API returns the exact float, and the frontend formats it with up to 10 decimal places, showing `0.3`.
 
 **Why not a decimal type (BigDecimal).** Go has no decimal type in the standard library (it would need `shopspring/decimal` or `math/big`). JSON would lose the precision anyway unless numbers were sent as strings, which would break the required contract (`"a": 10`) and force the frontend to use another library. Square roots and fractional powers are irrational and have no exact decimal representation either. For a general-purpose calculator, float64 with `Inf`/`NaN` detection is the right trade-off; for money, a decimal type would be the choice.
 
@@ -385,7 +383,7 @@ nginx (TLS termination) saturates first, so `FRONTEND_CPUS` is the first knob to
 
 - **Numeric limits:** operands and results must fit in float64 (±1.797×10³⁰⁸). Larger operands are rejected while parsing (`INVALID_PAYLOAD`), and infinite results become `OVERFLOW`.
 - **Precision:** about 15 to 17 significant digits. The frontend switches to scientific notation for values ≥ 10¹⁵ or < 10⁻⁶.
-- **Frontend input:** accepts `12`, `-3,5`, `.5`, `1e6`, with comma or dot as decimal separator. Thousands separators are rejected (`1.000,5` is ambiguous).
+- **Frontend input:** accepts `12`, `-3.5`, `.5`, `1e6`, with a dot as decimal separator. Commas are rejected with a clear message instead of guessed: `1,000` could mean one thousand or one, and guessing wrong would silently give a wrong result. Results are formatted with en-US conventions (`1,234.5`).
 - **No persistence:** no calculation is stored; there is no history and no authentication.
 - **Operation names** are case-sensitive (`"ADD"` is invalid).
 - **Request body** limited to 1 MiB (in nginx and in the backend).
