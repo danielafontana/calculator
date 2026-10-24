@@ -8,6 +8,10 @@ COPY . .
 ARG VITE_API_URL=
 ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
+# Set by the release workflow from the frontend/vX.Y.Z tag; served as
+# /version.json so the deployed version can be checked.
+ARG VERSION=dev
+RUN printf '{"version":"%s"}\n' "$VERSION" > dist/version.json
 
 # nginx stable branch, running as an unprivileged user (uid 101) on 8080/8443.
 FROM nginxinc/nginx-unprivileged:1.30-alpine
