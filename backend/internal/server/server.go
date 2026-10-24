@@ -17,16 +17,23 @@ import (
 )
 
 // NewRouter registers the API routes and wraps them with the middleware stack.
-func NewRouter(h *handlers.Handler, corsOrigins []string, logger *slog.Logger) http.Handler {
+// Health checks are not rate limited so probes never get 429.
+func NewRouter(h *handlers.Handler, cfg config.Config, logger *slog.Logger) http.Handler {
+	limit := middleware.RateLimit(middleware.RateLimitConfig{
+		RPS:            cfg.RateLimitRPS,
+		Burst:          cfg.RateLimitBurst,
+		TrustedProxies: cfg.TrustedProxies,
+	})
+
 	mux := http.NewServeMux()
-	mux.Handle("POST /api/v1/calculate", middleware.RequireJSON(http.HandlerFunc(h.Calculate)))
+	mux.Handle("POST /api/v1/calculate", limit(middleware.RequireJSON(http.HandlerFunc(h.Calculate))))
+	mux.Handle("GET /api/v1/operations", limit(http.HandlerFunc(h.Operations)))
 	mux.HandleFunc("GET /api/v1/health", h.Health)
-	mux.HandleFunc("GET /api/v1/operations", h.Operations)
 
 	return middleware.Chain(mux,
 		middleware.Logger(logger),
 		middleware.Recover(logger),
-		middleware.CORS(corsOrigins),
+		middleware.CORS(cfg.CORSOrigins),
 	)
 }
 
