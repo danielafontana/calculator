@@ -1,14 +1,29 @@
-# Calculadora Full-Stack
+# Full-Stack Calculator
 
-Calculadora com backend em **Go** (API REST) e frontend em **React + TypeScript**, empacotada com **Docker Compose**.
+A calculator with a **Go** REST API backend and a **React + TypeScript** frontend, packaged with **Docker Compose**.
+
+**At a glance**
+
+| Requirement | Where |
+|---|---|
+| Add, subtract, multiply, divide + power, square root, percentage | [`backend/internal/services/calculator.go`](backend/internal/services/calculator.go) |
+| REST API with validation, edge cases and JSON responses | [API examples](#6-api-examples), [error codes](#error-codes) |
+| React UI with input validation, error handling and responsive layout | [`frontend/src`](frontend/src), [screenshots](#1-overview) |
+| Unit tests and coverage for both layers | [Testing](#7-testing): backend 98.3%, frontend 98.7% |
+| Setup, how to run, API usage, design rationale | [Quick start](#4-quick-start), [Development](#5-development), [Design decisions](#8-design-decisions) |
+| Docker deployment of frontend + backend | [`docker-compose.yml`](docker-compose.yml): `docker compose up --build` |
+| Prompts used | [PROMPTS.md](PROMPTS.md) |
+| Security review (OWASP Top 10:2025) | [SECURITY.md](SECURITY.md) |
 
 ## 1. Overview
 
-A aplicação faz sete operações: soma, subtração, multiplicação, divisão, potência, raiz quadrada e porcentagem. O frontend valida a entrada (aceita vírgula ou ponto como separador decimal), chama a API e mostra o resultado num display no estilo LCD. Divisão por zero, raiz de número negativo e overflow geram mensagens que explicam o problema e como corrigi-lo.
+The app supports seven operations: addition, subtraction, multiplication, division, power, square root and percentage. The frontend validates input (comma or dot as decimal separator), calls the API and shows the result on an LCD-style display. Division by zero, square root of a negative number and overflow produce messages that explain the problem and how to fix it.
+
+The user interface text is in Brazilian Portuguese; code, comments and documentation are in English.
 
 | Desktop (≥ 1024px) | Tablet (≥ 768px) | Mobile (< 480px) |
 |---|---|---|
-| ![Desktop](docs/screenshots/desktop.png) | ![Tablet](docs/screenshots/tablet-sqrt.png) | ![Mobile com erro](docs/screenshots/mobile-error.png) |
+| ![Desktop](docs/screenshots/desktop.png) | ![Tablet](docs/screenshots/tablet-sqrt.png) | ![Mobile with error](docs/screenshots/mobile-error.png) |
 
 ## 2. Architecture
 
@@ -16,58 +31,64 @@ A aplicação faz sete operações: soma, subtração, multiplicação, divisão
 ┌──────────────────────────── Browser ────────────────────────────┐
 │  React 18 + TS (Vite)                                           │
 │  components ──► hooks (useCalculator, useOperations) ──► api.ts │
-│  (UI apenas)    (estado, validação)        (fetch /api, 10s)    │
+│  (UI only)      (state, validation)        (fetch /api, 10s)    │
 └───────────────────────────────┬─────────────────────────────────┘
-                                │ HTTPS (TLS 1.2/1.3, HTTP/2) — uma única origem
+                                │ HTTPS (TLS 1.2/1.3, HTTP/2), single origin
 ┌───────────────────────────────▼────────────────── nginx ────────┐
-│ :80   /healthz ou 301 → HTTPS                                   │
-│ :443  /        → SPA estática (dist/)                           │
-│       /api/*   → proxy_pass http://backend:8080 (rede interna)  │
+│ :80   /healthz, or 301 → HTTPS                                  │
+│ :443  /        → static SPA (dist/)                             │
+│       /api/*   → proxy_pass http://backend:8080 (internal net)  │
 └───────────────────────────────┬─────────────────────────────────┘
-                                │ HTTP, rede Docker (porta não publicada)
+                                │ HTTP, Docker network (port not published)
 ┌───────────────────────────────▼──────────── Go 1.27 net/http ───┐
-│ middleware: Logger → Recover → CORS → [RateLimit → RequireJSON] │
+│ middleware: RequestID → Logger → Recover → CORS                 │
+│             → [RateLimit → RequireJSON]                         │
 │        │                                                        │
-│ handlers   parse JSON, valida (models), chama service, serializa│
+│ handlers   decode JSON, validate (models), call service, encode │
 │        │                                                        │
-│ services   Calculator (interface) → BasicCalculator (lógica pura)│
+│ services   Calculator (interface) → BasicCalculator (pure logic)│
 │        │   sentinel errors: ErrDivisionByZero, ErrOverflow, ... │
-│ models     CalculateRequest (tags validate), responses, códigos │
+│ models     CalculateRequest (validate tags), responses, codes   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Estrutura** (segue o [golang-standards/project-layout](https://github.com/golang-standards/project-layout/blob/master/README_ptBR.md)):
+**Layout** (follows [golang-standards/project-layout](https://github.com/golang-standards/project-layout)):
 
 ```
 backend/
-  cmd/server/main.go        composição: config, logger, sinais, listener
+  cmd/server/main.go        wiring: config, logger, signals, listener
   internal/
-    config/                 leitura de variáveis de ambiente
-    handlers/               HTTP ⇄ service (sem regra de negócio)
-    httpjson/               helpers de resposta JSON
-    middleware/             CORS, logger slog, recover, Content-Type
-    models/                 request/response, validação via struct tags
-    server/                 rotas e graceful shutdown
-    services/               regras de cálculo (sem dependência de HTTP)
+    config/                 environment variables
+    handlers/               HTTP ⇄ service (no business rules)
+    httpjson/               JSON response helpers
+    middleware/             request ID, slog logger, recover, CORS, rate limit, Content-Type
+    models/                 request/response types, validation via struct tags
+    server/                 routes and graceful shutdown
+    services/               calculation rules (no HTTP dependency)
 frontend/
+  nginx/                    nginx templates (TLS, proxy, security headers)
   src/
     components/             Calculator (container), OperationSelector, ResultDisplay, NumberField
     hooks/                  useCalculator, useOperations
-    services/api.ts         cliente HTTP tipado (ApiError, timeout)
-    types/                  tipos do domínio e discriminated unions
-    utils/                  validação, formatação, metadados das operações
+    services/api.ts         typed HTTP client (ApiError, timeout)
+    types/                  domain types and discriminated unions
+    utils/                  validation, formatting, operation metadata
 ```
 
-**Fluxo de uma requisição:** `POST /api/v1/calculate` → `Logger` → `Recover` → `CORS` → `RateLimit` (429 se o IP estourou o limite) → `RequireJSON` (415 se não for JSON) → `handlers.Calculate`, que decodifica, valida com `models.Validate` e chama `services.Calculate`. O resultado passa por verificação de `NaN`/`Inf`. A resposta 200 é serializada; erros sentinela viram 400, cada um com o seu `code`.
+**Request flow:** `POST /api/v1/calculate` passes through these steps:
+1. `RequestID`, `Logger`, `Recover` and `CORS` run first.
+2. `RateLimit` returns 429 when the client exceeded its limit.
+3. `RequireJSON` returns 415 for a non-JSON body.
+4. `handlers.Calculate` decodes the body, validates it with `models.Validate` and calls `services.Calculate`, which checks the result for `NaN`/`Inf`.
+
+The handler encodes a 200 response; sentinel errors become 400, each with its own `code`.
 
 ## 3. Prerequisites
 
-- [Go 1.27](https://go.dev/dl/), a linha estável mais recente (testado com 1.27.3)
-- [Node.js 24 LTS](https://nodejs.org/) (24.15 ou mais recente; testado com 24.22.1). O `frontend/.nvmrc` fixa a linha: com nvm, basta rodar `nvm use`
-
-O Node 20 não funciona, porque o Vitest e o jsdom exigem Node 24.15+.
-- [Docker](https://docs.docker.com/engine/install/) com o plugin Compose v2
-- Opcional: [golangci-lint v2](https://golangci-lint.run/) e `make`
+- [Go 1.27](https://go.dev/dl/), the latest stable line (tested with 1.27.3)
+- [Node.js 24 LTS](https://nodejs.org/), 24.15 or newer (tested with 24.22.1). `frontend/.nvmrc` pins the line, so with nvm just run `nvm use`. Node 20 does not work: Vitest and jsdom require Node 24.15+.
+- [Docker](https://docs.docker.com/engine/install/) with the Compose v2 plugin
+- Optional: [golangci-lint v2](https://golangci-lint.run/) and `make`
 
 ## 4. Quick start
 
@@ -75,76 +96,77 @@ O Node 20 não funciona, porque o Vitest e o jsdom exigem Node 24.15+.
 docker compose up --build
 ```
 
-- Aplicação: <https://localhost:3443> (<http://localhost:3000> redireciona para HTTPS)
-- API, pelo mesmo endereço: <https://localhost:3443/api/v1/health>
+- App: <https://localhost:3443> (<http://localhost:3000> redirects to HTTPS)
+- API, same origin: <https://localhost:3443/api/v1/health>
 
-Sem certificado montado, o nginx gera um **certificado autoassinado** na inicialização, e o navegador mostra um aviso na primeira visita. Para continuar, aceite o risco (em "Avançado"). No `curl`, use `-k`. O backend não é publicado no host: ele só é acessível pelo nginx, na rede interna do Docker.
+When no certificate is mounted, nginx generates a **self-signed certificate** at startup, so the browser shows a warning on the first visit. To continue, accept the risk (under "Advanced"); with `curl`, use `-k`. The backend is not published on the host: only nginx can reach it, through the internal Docker network.
 
-Para mudar portas ou origens de CORS, copie `.env.example` para `.env` e edite os valores.
+To change ports or CORS origins, copy `.env.example` to `.env` and edit the values.
 
-### HTTPS em produção
+### HTTPS in production
 
-Monte o certificado real (por exemplo do Let's Encrypt, via certbot) em `/etc/nginx/certs` com os nomes `fullchain.pem` e `privkey.pem`, descomentando o volume no `docker-compose.yml`:
+Mount a real certificate (for example from Let's Encrypt via certbot) at `/etc/nginx/certs` as `fullchain.pem` and `privkey.pem`, by uncommenting the volume in `docker-compose.yml`:
 
 ```yaml
     volumes:
       - ./certs:/etc/nginx/certs:ro
 ```
 
-Com o certificado presente, o script de inicialização não gera o autoassinado. Em produção, use `HTTP_PORT=80`, `HTTPS_PORT=443` e `HSTS_MAX_AGE=31536000`.
+When the certificate is present, the startup script does not generate a self-signed one. In production, use `HTTP_PORT=80`, `HTTPS_PORT=443` and `HSTS_MAX_AGE=31536000`.
 
-Se quiser HTTPS local sem aviso do navegador, gere o certificado com o [mkcert](https://github.com/FiloSottile/mkcert) (`mkcert -cert-file certs/fullchain.pem -key-file certs/privkey.pem localhost 127.0.0.1`) e monte-o como acima. A CA do mkcert precisa estar confiada no sistema onde o navegador roda.
+For local HTTPS without the browser warning, generate the certificate with [mkcert](https://github.com/FiloSottile/mkcert) (`mkcert -cert-file certs/fullchain.pem -key-file certs/privkey.pem localhost 127.0.0.1`) and mount it as above. The mkcert CA must be trusted on the system that runs the browser.
 
 ## 5. Development
 
-**Backend** (porta 8080):
+**Backend** (port 8080):
 
 ```bash
 cd backend
-go run ./cmd/server          # ou: make run
+go run ./cmd/server          # or: make run
 ```
 
-**Frontend** (porta 5173, com proxy de `/api` para `localhost:8080`):
+**Frontend** (port 5173, proxies `/api` to `localhost:8080`):
 
 ```bash
 cd frontend
+nvm use                      # Node 24 LTS, from .nvmrc
 npm install
 npm run dev
 ```
 
-Sem `VITE_API_URL` definida, o frontend faz requisições relativas (`/api/...`) e o Vite as repassa ao backend. Assim o CORS não entra em jogo no desenvolvimento.
+Without `VITE_API_URL`, the frontend sends relative requests (`/api/...`) and Vite forwards them to the backend, so CORS does not come into play during development.
 
-| Comando | Descrição |
+| Command | Description |
 |---|---|
 | `make lint` / `npm run lint` | golangci-lint / ESLint |
 | `make fmt` / `npm run format` | gofumpt + goimports / Prettier |
 | `npm run typecheck` | `tsc --noEmit` (strict) |
-| `make build` / `npm run build` | binário em `bin/` / bundle em `dist/` |
+| `make build` / `npm run build` | binary in `bin/` / bundle in `dist/` |
 
-**Variáveis de ambiente do backend**
+**Backend environment variables**
 
-| Variável | Padrão | Descrição |
+| Variable | Default | Description |
 |---|---|---|
-| `PORT` | `8080` | Porta HTTP |
-| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Origens permitidas, separadas por vírgula (`*` libera todas) |
+| `PORT` | `8080` | HTTP port |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed origins (`*` allows any) |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
-| `RATE_LIMIT_RPS` | `10` | Requisições por segundo por IP de cliente (`0` desliga) |
-| `RATE_LIMIT_BURST` | `20` | Rajada máxima permitida por IP |
-| `TRUSTED_PROXIES` | vazio | IPs/CIDRs autorizados a informar o IP real via `X-Real-IP` |
+| `RATE_LIMIT_RPS` | `10` | Requests per second per client IP (`0` disables) |
+| `RATE_LIMIT_BURST` | `20` | Maximum burst per client |
+| `TRUSTED_PROXIES` | empty | IPs/CIDRs allowed to report the real client IP via `X-Real-IP` |
 
-**Variáveis do nginx** (container `frontend`)
+**nginx variables** (`frontend` container)
 
-| Variável | Padrão | Descrição |
+| Variable | Default | Description |
 |---|---|---|
-| `PUBLIC_HTTPS_PORT` | `443` (`3443` no compose) | Porta usada no redirecionamento HTTP → HTTPS |
-| `HSTS_MAX_AGE` | `0` | `max-age` do HSTS. Mantenha `0` com o certificado autoassinado e use `31536000` com um certificado real |
-| `CSP_CONNECT_SRC` | `'self'` | Origens que a página pode chamar. Adicione a origem da API se `VITE_API_URL` apontar para fora |
+| `PUBLIC_HTTPS_PORT` | `443` (`3443` in compose) | Port used in the HTTP → HTTPS redirect |
+| `HSTS_MAX_AGE` | `0` | HSTS `max-age`. Keep `0` with the self-signed certificate; use `31536000` with a real one |
+| `CSP_CONNECT_SRC` | `'self'` | Origins the page may call. Add the API origin if `VITE_API_URL` points elsewhere |
 
-Os timeouts de leitura e escrita são de 10s. O servidor encerra de forma graciosa ao receber `SIGINT` ou `SIGTERM`: espera até 10s pelas requisições em andamento.
+Read and write timeouts are 10s. The server shuts down gracefully on `SIGINT` or `SIGTERM`, waiting up to 10s for in-flight requests.
 
 ## 6. API examples
 
-Os exemplos usam o backend de desenvolvimento (`go run`, em `http://localhost:8080`). Com Docker Compose, use `https://localhost:3443` e o parâmetro `-k` do curl, por exemplo `curl -sk https://localhost:3443/api/v1/health`.
+The examples target the development backend (`go run`, at `http://localhost:8080`). With Docker Compose, use `https://localhost:3443` and curl's `-k` flag, for example `curl -sk https://localhost:3443/api/v1/health`.
 
 ### `POST /api/v1/calculate`
 
@@ -157,7 +179,7 @@ curl -s -X POST http://localhost:8080/api/v1/calculate \
 {"result":15,"operation":"add","operands":{"a":10,"b":5}}
 ```
 
-Raiz quadrada (`b` é opcional e ignorado):
+Square root (`b` is optional and ignored):
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/calculate \
@@ -167,7 +189,7 @@ curl -s -X POST http://localhost:8080/api/v1/calculate \
 {"result":4,"operation":"sqrt","operands":{"a":16}}
 ```
 
-Porcentagem, `(a × b) / 100`:
+Percentage, `(a × b) / 100`:
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/calculate \
@@ -177,7 +199,7 @@ curl -s -X POST http://localhost:8080/api/v1/calculate \
 {"result":30,"operation":"percentage","operands":{"a":200,"b":15}}
 ```
 
-Divisão por zero (400):
+Division by zero (400):
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/calculate \
@@ -187,7 +209,17 @@ curl -s -X POST http://localhost:8080/api/v1/calculate \
 {"error":"division by zero","code":"DIVISION_BY_ZERO"}
 ```
 
-Content-Type errado (415):
+Invalid operand type (400):
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/calculate \
+  -H 'Content-Type: application/json' -d '{"operation":"add","a":"ten","b":5}'
+```
+```json
+{"error":"field \"a\" has an invalid value","code":"INVALID_PAYLOAD"}
+```
+
+Wrong Content-Type (415):
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/calculate -d '{}'
@@ -196,20 +228,20 @@ curl -s -X POST http://localhost:8080/api/v1/calculate -d '{}'
 {"error":"Content-Type must be application/json","code":"UNSUPPORTED_MEDIA_TYPE"}
 ```
 
-**Códigos de erro**
+#### Error codes
 
-| HTTP | `code` | Quando |
+| HTTP | `code` | When |
 |---|---|---|
-| 400 | `INVALID_PAYLOAD` | Corpo não é JSON válido, tem mais de um objeto ou um operando fora do range de float64 |
-| 400 | `INVALID_OPERATION` | `operation` ausente ou fora do enum |
-| 400 | `MISSING_OPERAND` | `a` ausente, ou `b` ausente em operação binária |
-| 400 | `DIVISION_BY_ZERO` | `divide` com `b = 0`, ou `power` com `a = 0` e `b < 0` |
-| 400 | `NEGATIVE_SQRT` | `sqrt` com `a < 0` |
-| 400 | `OVERFLOW` | Resultado infinito (fora do range de float64) |
-| 400 | `UNDEFINED_RESULT` | Resultado `NaN` (ex.: `power` com base negativa e expoente fracionário) |
-| 415 | `UNSUPPORTED_MEDIA_TYPE` | `Content-Type` diferente de `application/json` |
-| 429 | `RATE_LIMITED` | Limite de requisições por IP excedido. O header `Retry-After` indica em quantos segundos tentar de novo. Não se aplica a `/health` |
-| 500 | `INTERNAL_ERROR` | Erro inesperado (o detalhe vai para o log, nunca para o cliente) |
+| 400 | `INVALID_PAYLOAD` | Body is empty, not valid JSON, not a single object, too large, or has a field of the wrong type or outside the float64 range |
+| 400 | `INVALID_OPERATION` | `operation` missing or not one of the supported values |
+| 400 | `MISSING_OPERAND` | `a` missing, or `b` missing for a binary operation |
+| 400 | `DIVISION_BY_ZERO` | `divide` with `b = 0`, or `power` with `a = 0` and `b < 0` |
+| 400 | `NEGATIVE_SQRT` | `sqrt` with `a < 0` |
+| 400 | `OVERFLOW` | Infinite result (outside the float64 range) |
+| 400 | `UNDEFINED_RESULT` | `NaN` result (e.g. `power` with a negative base and a fractional exponent) |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | `Content-Type` other than `application/json` |
+| 429 | `RATE_LIMITED` | Per-client request limit exceeded; `Retry-After` says when to retry. Not applied to `/health` |
+| 500 | `INTERNAL_ERROR` | Unexpected error (details are logged, never sent to the client) |
 
 ### `GET /api/v1/health`
 
@@ -239,102 +271,104 @@ curl -s http://localhost:8080/api/v1/operations
 
 ## 7. Testing
 
-**Backend:** testes table-driven com testify, mock do service nos testes de handler e testes de integração do router e do shutdown.
+**Backend:** table-driven tests with testify, a mocked service in handler tests, and integration tests for the router and graceful shutdown.
 
 ```bash
 cd backend
-go test -race -cover ./...   # cobertura por pacote
-make cover                   # cobertura total (coverage.out)
-make cover-html              # gera coverage.html e abre no navegador
+go test -race -cover ./...   # per-package coverage
+make cover                   # total coverage (coverage.out)
+make cover-html              # writes coverage.html
 ```
 
-**Frontend:** Vitest + React Testing Library, com `renderHook` para os hooks e `fetch` mockado com `vi.fn()`.
+**Frontend:** Vitest + React Testing Library, `renderHook` for hooks and `fetch` mocked with `vi.fn()`.
 
 ```bash
 cd frontend
-npm run test -- --coverage   # relatório de texto + HTML em coverage/index.html
+npm run test -- --coverage   # text report + HTML in coverage/index.html
 ```
 
-| Camada | Meta | Atual |
+| Layer | Target | Current |
 |---|---|---|
-| Backend (`./internal/...`) | ≥ 85% | ~98% |
-| Frontend (statements) | ≥ 80% | ~98% |
+| Backend (`./internal/...`, statements) | ≥ 85% | 98.3% |
+| Frontend (statements) | ≥ 80% | 98.7% (86 tests) |
 
-A configuração do Vitest falha o build se a cobertura do frontend ficar abaixo de 80%. O CI (`.github/workflows/ci.yml`) roda a cada push, a cada PR e uma vez por semana. Ele executa:
-- lint, testes e build;
-- verificações de segurança: `govulncheck`, `npm audit`, assinaturas npm e Trivy nas imagens (falha com HIGH ou CRITICAL corrigível);
-- geração de SBOM (CycloneDX);
-- um smoke test com `docker compose`.
+The Vitest configuration fails the build if frontend coverage drops below 80%. CI (`.github/workflows/ci.yml`) runs on every push, on every pull request and once a week. It runs:
+- lint, tests and build;
+- security checks: `govulncheck`, `npm audit`, npm registry signatures and Trivy on the images (fails on fixable HIGH or CRITICAL findings);
+- an SBOM (CycloneDX) for each image;
+- a smoke test against the `docker compose` stack.
 
-O Dependabot mantém atualizadas as dependências Go e npm, as imagens Docker e as Actions. A análise completa de segurança, mapeada para o OWASP Top 10:2025, está em [SECURITY.md](SECURITY.md).
+Dependabot keeps Go and npm dependencies, Docker images and Actions up to date. The full security review, mapped to the OWASP Top 10:2025, is in [SECURITY.md](SECURITY.md).
 
 ## 8. Design decisions
 
-**Camadas handler/service.** O service não conhece HTTP. Ele recebe `(operation, a, b)` e devolve `(float64, error)`. Por isso as regras de negócio são testadas sem servidor, e o handler é testado com um mock da interface `Calculator`. Trocar o transporte (gRPC, CLI) não exige mudar a lógica. Erros sentinela (`ErrDivisionByZero` etc.) são mapeados para status e `code` numa única tabela no handler.
+**Handler/service layers.** The service knows nothing about HTTP: it takes `(operation, a, b)` and returns `(float64, error)`. Business rules are therefore tested without a server, and the handler is tested against a mock of the `Calculator` interface. Changing the transport (gRPC, CLI) does not touch the logic. Sentinel errors (`ErrDivisionByZero`, ...) are mapped to HTTP status and `code` in a single table in the handler.
 
-**Stateless.** Cada requisição carrega tudo o que precisa e não há sessão nem banco. Isso permite escalar horizontalmente sem coordenação, reiniciar sem perder dados e testar de forma determinística.
+**Stateless.** Each request carries everything it needs; there is no session or database. The service scales horizontally without coordination, restarts without losing data and is deterministic to test.
 
-**float64.** É o tipo nativo do JSON (IEEE-754) e do `Number` do JavaScript, então os dois lados representam o mesmo valor sem conversão. O custo é a imprecisão decimal (`0.1 + 0.2 = 0.30000000000000004`). A API devolve o valor exato do float, e o frontend formata com até 10 casas decimais, exibindo `0,3`.
+**float64.** It is the native number type of JSON (IEEE-754) and of JavaScript's `Number`, so both sides represent the same value without conversion. The cost is decimal imprecision (`0.1 + 0.2 = 0.30000000000000004`). The API returns the exact float, and the frontend formats it with up to 10 decimal places, showing `0,3`.
 
-**Por que não BigDecimal.** Go não tem decimal na stdlib (exigiria `shopspring/decimal` ou `math/big`), e o JSON perderia a precisão de qualquer forma, a menos que os números trafegassem como string. Isso quebraria o contrato pedido (`"a": 10`) e obrigaria o frontend a usar outra biblioteca. Além disso, `sqrt` e `power` com expoente fracionário são irracionais e não têm representação decimal exata. Para uma calculadora de uso geral, float64 com detecção de `Inf`/`NaN` é o equilíbrio certo. Para valores monetários, a escolha seria decimal.
+**Why not a decimal type (BigDecimal).** Go has no decimal type in the standard library (it would need `shopspring/decimal` or `math/big`). JSON would lose the precision anyway unless numbers were sent as strings, which would break the required contract (`"a": 10`) and force the frontend to use another library. Square roots and fractional powers are irrational and have no exact decimal representation either. For a general-purpose calculator, float64 with `Inf`/`NaN` detection is the right trade-off; for money, a decimal type would be the choice.
 
-**CSS Modules em vez de Tailwind.** O escopo é pequeno e o visual é específico (teclas com relevo, display LCD). CSS Modules dá escopo local sem runtime nem dependência de build extra, mantém o markup legível e usa design tokens em variáveis CSS (`index.css`). Tailwind compensaria num design system maior ou num time que já o usa.
+**CSS Modules instead of Tailwind.** The scope is small and the look is specific (raised keys, LCD display). CSS Modules give local scoping with no runtime or extra build dependency, keep the markup readable and use design tokens as CSS variables (`index.css`). Tailwind pays off in a larger design system or in a team that already uses it.
 
-**Outras decisões:**
-- **Validação via struct tags** (`go-playground/validator`) com uma validação customizada `operation`, para que o enum fique num único lugar (`models.Operations()`).
-- **Operandos como ponteiros** (`*float64`), para distinguir "ausente" de `0`.
-- **`-0` é normalizado para `0`**, e o JSON nunca devolve `-0`.
-- **Na porcentagem**, quando `a × b` estoura mas o resultado final cabe, o cálculo usa `a × (b / 100)`.
-- **`VITE_API_URL` é build arg**, não variável de runtime, e fica vazia por padrão. O Vite embute o valor no bundle durante o build, e vazio significa requisições relativas (`/api/...`).
+**Other decisions:**
+- **Validation via struct tags** (`go-playground/validator`) with a custom `operation` rule, so the enum lives in one place (`models.Operations()`).
+- **Operands are pointers** (`*float64`), to tell "missing" apart from `0`.
+- **`-0` is normalized to `0`**, so the JSON never contains `-0`.
+- **Percentage:** when `a × b` overflows but the final value fits, the calculation uses `a × (b / 100)`.
+- **Client-safe errors:** JSON decoding errors are turned into generic messages, such as `field "a" has an invalid value`, that never expose Go type names.
+- **`VITE_API_URL` is a build argument**, not a runtime variable, and is empty by default. Vite inlines it into the bundle at build time; empty means relative requests (`/api/...`).
+- **`useOperations`** loads the operation list from the API and falls back to the local list if the API is down, so the UI stays usable.
+- **`useCalculator`** ignores responses of requests that were superseded by newer ones, which avoids race conditions.
 
-**HTTPS e mesma origem.** O nginx termina o TLS (TLS 1.2/1.3 e HTTP/2; no TLS 1.2, só cifras ECDHE + AEAD; no TLS 1.3, troca de chave híbrida pós-quântica X25519MLKEM768), serve a SPA e repassa `/api/*` ao backend pela rede interna. Isso traz quatro vantagens:
-- o tráfego entre navegador e servidor é cifrado;
-- o backend não fica exposto à internet;
-- o navegador fala com uma única origem, então o CORS deixa de ser necessário para o próprio frontend;
-- o nginx limita o corpo das requisições em 1 MiB antes de chegar ao Go.
+**HTTPS and a single origin.** nginx terminates TLS: TLS 1.2/1.3 with HTTP/2, only ECDHE + AEAD ciphers on TLS 1.2, and the hybrid post-quantum key exchange X25519MLKEM768 on TLS 1.3. It serves the SPA and proxies `/api/*` to the backend over the internal network. As a result:
+- traffic between browser and server is encrypted;
+- the backend is not exposed to the internet;
+- the browser talks to a single origin, so the bundled frontend does not need CORS;
+- nginx caps request bodies at 1 MiB before they reach Go.
 
-O backend continua falando HTTP puro, mas só dentro da rede do Docker. JWT ou sessão só entram se o projeto passar a ter usuários, porque autenticação não substitui TLS e, numa SPA pública, um token sem login pode ser copiado por qualquer um.
+The backend still speaks plain HTTP, but only inside the Docker network. JWT or sessions are only worth adding once the project has users: authentication does not replace TLS, and in a public SPA any token obtained without a login can be copied by anyone.
 
-**Headers de segurança.** Ficam num snippet (`frontend/nginx/security-headers.inc.template`) incluído em todo bloco que responde, porque um `add_header` dentro de um `location` anula os herdados do `server`. São estes:
-- `Content-Security-Policy`: só scripts da própria origem; estilos e fontes também do Google Fonts; `connect-src 'self'`; `frame-ancestors 'none'`. Limita o estrago de um XSS.
-- `Strict-Transport-Security`: configurável e desligado (`max-age=0`) com o certificado autoassinado. Com HSTS ativo, o navegador passaria a exigir um certificado que ele mesmo rejeita, e o site ficaria inacessível.
-- `X-Frame-Options: DENY`, contra clickjacking.
+**Security headers.** They live in a snippet (`frontend/nginx/security-headers.inc.template`) included in every block that sends responses, because an `add_header` inside a `location` drops the ones inherited from `server`:
+- `Content-Security-Policy`: scripts only from the same origin; styles and fonts also from Google Fonts; `connect-src 'self'`; `frame-ancestors 'none'`. Limits the damage of an XSS.
+- `Strict-Transport-Security`: configurable, and off (`max-age=0`) with the self-signed certificate. With HSTS on, browsers would require a certificate they reject and the site would become unreachable.
+- `X-Frame-Options: DENY`, against clickjacking.
 - `X-Content-Type-Options: nosniff`.
 - `Referrer-Policy: strict-origin-when-cross-origin`.
-- `Permissions-Policy`: câmera, microfone, geolocalização, pagamento e USB desligados.
+- `Permissions-Policy`: camera, microphone, geolocation, payment and USB disabled.
 - `Cross-Origin-Opener-Policy: same-origin`.
 
-O nginx também não expõe a versão (`server_tokens off`).
+nginx also hides its version (`server_tokens off`).
 
-**Rate limiting.** Um token bucket por IP de cliente (`golang.org/x/time/rate`) devolve 429 com `Retry-After`, aplicado a `/calculate` e `/operations`. O `/health` fica de fora para que os health checks nunca recebam 429.
-- **Identificação do cliente:** atrás do nginx, todas as conexões vêm do IP do proxy. Por isso o backend usa o header `X-Real-IP`, mas só quando a conexão vem de um IP listado em `TRUSTED_PROXIES`. Um cliente direto não consegue escapar do limite forjando o header.
-- **IPv6 agrupado por /64:** um cliente IPv6 controla um /64 inteiro, então limitar por endereço seria fácil de contornar.
-- **Memória limitada:** buckets inativos são descartados após 10 minutos, e a tabela guarda no máximo 100 mil clientes (cerca de 16 MiB). Acima disso, clientes novos dividem um bucket de transbordo: um ataque com rotação de IPs é contido como grupo, sem afetar os clientes já conhecidos.
-- **Logs:** cada requisição registra `request_id` (gerado pelo nginx e devolvido no header `X-Request-ID`) e `client_ip` (o IP real, pela mesma regra de confiança). Assim dá para correlacionar os logs do nginx e do backend.
-- **Limitação:** o estado fica em memória e vale por instância. Com várias réplicas, o limite efetivo se multiplica, e o próximo passo seria um store compartilhado (Redis).
-- **`useOperations`** busca as operações na API e cai para a lista local se a API estiver fora do ar, para que a interface continue utilizável.
-- **`useCalculator`** descarta respostas de requisições substituídas por outras mais recentes, o que evita race conditions.
+**Rate limiting.** A token bucket per client (`golang.org/x/time/rate`) returns 429 with `Retry-After` on `/calculate` and `/operations`. `/health` is excluded so health checks never get 429.
+- **Client identification:** behind nginx, every connection comes from the proxy's IP. The backend therefore uses `X-Real-IP`, but only when the connection comes from an address in `TRUSTED_PROXIES`, so a direct client cannot dodge the limit by forging the header.
+- **IPv6 grouped by /64:** an IPv6 client controls a whole /64, so limiting per address would be trivial to bypass.
+- **Bounded memory:** idle buckets are dropped after 10 minutes, and the table holds at most 100,000 clients (about 16 MiB). Beyond that, new clients share an overflow bucket: an address-rotation attack is throttled as a group without affecting known clients.
+- **Limitation:** state is in memory and per instance. With several replicas, the effective limit multiplies; the next step would be a shared store (Redis).
+
+**Logging.** Each request is logged as one JSON line with `request_id` and `client_ip`. The request ID is generated by nginx and returned in the `X-Request-ID` header, and nginx logs the same ID, so lines from both services can be correlated. The client IP is resolved with the same trust rule as the rate limiter.
 
 ## 9. Assumptions
 
-- **Limites numéricos:** operandos e resultados devem caber em float64 (±1,797×10³⁰⁸). Operandos maiores são rejeitados no parsing (`INVALID_PAYLOAD`), e resultados infinitos viram `OVERFLOW`.
-- **Precisão:** cerca de 15 a 17 dígitos significativos. O frontend usa notação científica para valores ≥ 10¹⁵ ou < 10⁻⁶.
-- **Entrada no frontend:** aceita `12`, `-3,5`, `.5`, `1e6` e vírgula ou ponto como separador decimal. Separadores de milhar não são aceitos (`1.000,5` é ambíguo).
-- **Sem persistência:** nenhum cálculo é armazenado, e não há histórico nem autenticação.
-- **Nomes de operação** diferenciam maiúsculas e minúsculas (`"ADD"` é inválido).
-- **Tamanho do corpo** da requisição limitado a 1 MiB (no nginx e no backend).
-- **Rate limit padrão:** 10 req/s por IP, com rajada de 20. Clientes atrás do mesmo NAT compartilham o limite.
-- **Certificado autoassinado** por padrão, válido para `localhost` e `127.0.0.1` por 365 dias. Serve só para uso local.
+- **Numeric limits:** operands and results must fit in float64 (±1.797×10³⁰⁸). Larger operands are rejected while parsing (`INVALID_PAYLOAD`), and infinite results become `OVERFLOW`.
+- **Precision:** about 15 to 17 significant digits. The frontend switches to scientific notation for values ≥ 10¹⁵ or < 10⁻⁶.
+- **Frontend input:** accepts `12`, `-3,5`, `.5`, `1e6`, with comma or dot as decimal separator. Thousands separators are rejected (`1.000,5` is ambiguous).
+- **No persistence:** no calculation is stored; there is no history and no authentication.
+- **Operation names** are case-sensitive (`"ADD"` is invalid).
+- **Request body** limited to 1 MiB (in nginx and in the backend).
+- **Default rate limit:** 10 req/s per client, burst of 20. Clients behind the same NAT share the limit.
+- **Self-signed certificate** by default, valid for `localhost` and `127.0.0.1` for 365 days. It is meant for local use only.
 
 ## 10. Future improvements
 
-- **Autenticação:** sessão em cookie `HttpOnly`/`SameSite` ou OIDC, quando houver usuários.
-- **Rate limiting distribuído** (Redis) para rodar várias réplicas do backend com um limite único.
-- **CSP sem dependências externas:** servir as fontes localmente para remover o Google Fonts da política.
-- **Histórico:** persistir cálculos (PostgreSQL) com paginação, e no frontend uma lista dos últimos resultados reutilizáveis.
-- **WebSocket:** cálculo em tempo real enquanto o usuário digita e sincronização do histórico entre abas.
-- **Expressões:** avaliar expressões completas (`2 * (3 + 4)`) com parser próprio.
-- **Precisão arbitrária opcional:** modo decimal com números como string para casos financeiros.
-- **Observabilidade:** métricas Prometheus, tracing com OpenTelemetry e request ID nos logs.
-- **Documentação OpenAPI** gerada a partir dos models.
-- **Testes E2E** com Playwright no CI.
+- **Authentication:** `HttpOnly`/`SameSite` session cookies or OIDC, once there are users.
+- **Distributed rate limiting** (Redis), to run several backend replicas with one shared limit.
+- **CSP without third parties:** self-host the fonts and drop Google Fonts from the policy.
+- **History:** persist calculations (PostgreSQL) with pagination, and show recent results in the frontend.
+- **WebSocket:** live results while typing and history sync across tabs.
+- **Expressions:** evaluate full expressions (`2 * (3 + 4)`) with a dedicated parser.
+- **Optional arbitrary precision:** a decimal mode with numbers sent as strings, for financial use.
+- **Observability:** Prometheus metrics and OpenTelemetry tracing.
+- **OpenAPI documentation** generated from the models.
+- **End-to-end tests** with Playwright in CI.
