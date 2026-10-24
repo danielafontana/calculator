@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -90,7 +92,7 @@ func TestLogger(t *testing.T) {
 
 			logger := slog.New(slog.NewJSONHandler(&buf, nil))
 			rec := httptest.NewRecorder()
-			middleware.Logger(logger)(tt.handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
+			middleware.Logger(logger, nil)(tt.handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
 
 			var entry map[string]any
 			require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
@@ -198,4 +200,67 @@ func TestChain_Order(t *testing.T) {
 		ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 
 	assert.Equal(t, []string{"first", "second"}, order)
+}
+
+func TestLogger_ClientIPAndRequestID(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	trusted := []netip.Prefix{netip.MustParsePrefix("172.16.0.0/12")}
+	h := middleware.RequestID(middleware.Logger(logger, trusted)(okHandler))
+
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.RemoteAddr = "172.18.0.3:4000"
+	req.Header.Set("X-Real-IP", "203.0.113.7")
+	req.Header.Set(middleware.RequestIDHeader, "abc-123")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	var entry map[string]any
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
+	assert.Equal(t, "203.0.113.7", entry["client_ip"], "real client behind the trusted proxy")
+	assert.Equal(t, "172.18.0.3:4000", entry["remote_addr"])
+	assert.Equal(t, "abc-123", entry["request_id"])
+}
+
+func TestRequestID(t *testing.T) {
+	t.Parallel()
+
+	var seen string
+
+	h := middleware.RequestID(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		seen = middleware.RequestIDFrom(r.Context())
+	}))
+
+	tests := []struct {
+		name, incoming string
+		keep           bool
+	}{
+		{"propagates a valid id", "3f2a9c1e-77b0", true},
+		{"generates when missing", "", false},
+		{"replaces ids with unsafe characters", "abc\ninjected", false},
+		{"replaces oversized ids", strings.Repeat("a", 65), false},
+	}
+
+	for _, tt := range tests {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if tt.incoming != "" {
+			req.Header.Set(middleware.RequestIDHeader, tt.incoming)
+		}
+
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+
+		got := rec.Header().Get(middleware.RequestIDHeader)
+		assert.Equal(t, seen, got, tt.name)
+
+		if tt.keep {
+			assert.Equal(t, tt.incoming, got, tt.name)
+		} else {
+			assert.Regexp(t, `^[0-9a-f]{32}$`, got, tt.name)
+		}
+	}
+
+	assert.Empty(t, middleware.RequestIDFrom(t.Context()))
 }

@@ -31,7 +31,8 @@ func NewRouter(h *handlers.Handler, cfg config.Config, logger *slog.Logger) http
 	mux.HandleFunc("GET /api/v1/health", h.Health)
 
 	return middleware.Chain(mux,
-		middleware.Logger(logger),
+		middleware.RequestID,
+		middleware.Logger(logger, cfg.TrustedProxies),
 		middleware.Recover(logger),
 		middleware.CORS(cfg.CORSOrigins),
 	)

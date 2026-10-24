@@ -25,6 +25,7 @@ func Recover(logger *slog.Logger) Middleware {
 				}
 
 				logger.ErrorContext(r.Context(), "panic recovered",
+					slog.String("request_id", RequestIDFrom(r.Context())),
 					slog.Any("panic", rv),
 					slog.String("stack", string(debug.Stack())),
 				)

@@ -3,6 +3,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 )
 
@@ -28,8 +29,9 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	return n, err
 }
 
-// Logger logs one structured line per request.
-func Logger(logger *slog.Logger) Middleware {
+// Logger logs one structured line per request. client_ip is resolved like in
+// RateLimit, so behind nginx it is the real client and not the proxy.
+func Logger(logger *slog.Logger, trustedProxies []netip.Prefix) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -55,6 +57,8 @@ func Logger(logger *slog.Logger) Middleware {
 				slog.Int("status", rec.status),
 				slog.Int("bytes", rec.bytes),
 				slog.Duration("duration", time.Since(start)),
+				slog.String("request_id", RequestIDFrom(r.Context())),
+				slog.String("client_ip", ClientIP(r, trustedProxies)),
 				slog.String("remote_addr", r.RemoteAddr),
 				slog.String("user_agent", r.UserAgent()),
 			)
