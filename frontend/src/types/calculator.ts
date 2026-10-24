@@ -21,6 +21,7 @@ export const ERROR_CODES = [
   'OVERFLOW',
   'UNDEFINED_RESULT',
   'UNSUPPORTED_MEDIA_TYPE',
+  'RATE_LIMITED',
   'INTERNAL_ERROR',
 ] as const;
 

@@ -113,6 +113,7 @@ describe('errors', () => {
   it('has a message for every code', () => {
     expect(errorMessage('DIVISION_BY_ZERO')).toMatch(/dividir por zero/);
     expect(errorMessage('NETWORK_ERROR')).toMatch(/conexão/);
+    expect(errorMessage('RATE_LIMITED')).toMatch(/aguarde/i);
   });
 
   it('toApiError keeps ApiError and wraps anything else', () => {
