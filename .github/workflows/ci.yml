@@ -38,8 +38,22 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Test
         run: go test -race -coverpkg=./internal/... -coverprofile=coverage.out ./...
-      - name: Coverage
-        run: go tool cover -func=coverage.out | tail -1
+      - name: Coverage report
+        run: |
+          go tool cover -html=coverage.out -o coverage.html
+          {
+            echo "### Backend coverage"
+            echo '```'
+            go tool cover -func=coverage.out
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out | tail -1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-backend
+          path: |
+            backend/coverage.html
+            backend/coverage.out
 
   frontend:
     runs-on: ubuntu-latest
@@ -63,7 +77,14 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
-      - run: npm run test -- --coverage
+      - name: Test with coverage
+        run: npm run test -- --coverage --coverage.reporter=text --coverage.reporter=html --coverage.reporter=json-summary
+      - name: Coverage summary
+        run: node scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-frontend
+          path: frontend/coverage/
       - run: npm run build
 
   docker:
