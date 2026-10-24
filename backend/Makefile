@@ -1,5 +1,7 @@
 BINARY  := bin/server
-VERSION ?= 1.0.0
+# Version from the latest backend/vX.Y.Z tag (e.g. 1.2.0, or 1.2.0-3-gabc123
+# after it, plus -dirty for local changes); "dev" when there is no tag.
+VERSION ?= $(or $(shell git describe --tags --match "backend/v*" --dirty 2>/dev/null | sed "s|^backend/v||"),dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
 .PHONY: help run build test cover cover-html lint lint-fix fmt tidy docker-build clean

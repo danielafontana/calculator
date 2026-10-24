@@ -3,7 +3,8 @@ WORKDIR /app
 COPY go.* ./
 RUN go mod download
 COPY . .
-ARG VERSION=1.0.0
+# Set by the release workflow from the backend/vX.Y.Z tag.
+ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./cmd/server
 
 FROM alpine:3.24

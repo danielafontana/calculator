@@ -1,0 +1,30 @@
+name: Release frontend
+
+# Push a frontend/vX.Y.Z tag to release the frontend on its own. The tag must
+# match the "version" in frontend/package.json:
+#   npm version 1.1.0 --no-git-tag-version   (inside frontend/, then commit)
+#   git tag -a frontend/v1.1.0 -m "frontend 1.1.0" && git push origin frontend/v1.1.0
+on:
+  push:
+    tags: ["frontend/v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-frontend
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/frontend.yml
+
+  publish:
+    needs: checks
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/release-image.yml
+    with:
+      component: frontend

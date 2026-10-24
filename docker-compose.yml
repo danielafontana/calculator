@@ -1,9 +1,16 @@
+# Each service is versioned and released on its own (backend/vX.Y.Z and
+# frontend/vX.Y.Z tags). By default both are built locally and tagged "dev";
+# set *_IMAGE and *_TAG to run published images instead, e.g.
+#   BACKEND_IMAGE=ghcr.io/<owner>/calculator-backend BACKEND_TAG=1.0.0 \
+#   FRONTEND_IMAGE=ghcr.io/<owner>/calculator-frontend FRONTEND_TAG=1.0.0 \
+#   docker compose up -d --no-build --pull always
 services:
   backend:
+    image: ${BACKEND_IMAGE:-calculator-backend}:${BACKEND_TAG:-dev}
     build:
       context: ./backend
       args:
-        VERSION: ${APP_VERSION:-1.0.0}
+        VERSION: ${BACKEND_TAG:-dev}
     # Not published to the host: only reachable by nginx on the internal network.
     # Scale horizontally with `docker compose up --scale backend=N`; nginx picks
     # up new replicas within 10s.
@@ -34,9 +41,11 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: ${FRONTEND_IMAGE:-calculator-frontend}:${FRONTEND_TAG:-dev}
     build:
       context: ./frontend
       args:
+        VERSION: ${FRONTEND_TAG:-dev}
         VITE_API_URL: ${VITE_API_URL:-}
     # nginx runs unprivileged and listens on 8080 (HTTP) and 8443 (HTTPS).
     ports:

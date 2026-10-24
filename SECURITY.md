@@ -22,7 +22,7 @@ The main risks are abuse (denial of service), transport configuration and the so
 | **A05** Injection | ✅ | No SQL, shell or server-side templates. JSON decoded into fixed types (`float64`, validated enum); JSON logs (`slog`) prevent log line injection; React escapes all output; CSP without `unsafe-inline` |
 | **A06** Insecure Design | ✅ | Validation in both tiers; explicit limits (1 MiB body, 10s timeouts, rate limit); misuse-case tests (overflow, NaN, large body, IP rotation, forged headers) |
 | **A07** Authentication Failures | ➖ | Not applicable: the API is public by design. If users are added, use `HttpOnly`/`Secure`/`SameSite` session cookies or OIDC |
-| **A08** Software/Data Integrity Failures | ✅ / ⚠️ | Actions pinned by commit SHA; pinned golangci-lint and govulncheck versions; no serialized data accepted without validation. Open: Google Fonts CSS loaded without SRI |
+| **A08** Software/Data Integrity Failures | ✅ / ⚠️ | Actions pinned by commit SHA; pinned golangci-lint and govulncheck versions; released images signed with cosign (keyless, verifiable against the release workflow identity) and published with SBOM and SLSA provenance attestations; images are scanned before they are pushed; no serialized data accepted without validation. Open: Google Fonts CSS loaded without SRI |
 | **A09** Logging & Alerting Failures | ✅ | One JSON log line per request with `request_id`, `client_ip` (real client behind the proxy), status and duration; nginx logs the same `rid`; 4xx at WARN, 5xx and panics at ERROR with stack trace. Alerting depends on the log platform (out of scope) |
 | **A10** Mishandling of Exceptional Conditions | ✅ / ⚠️ | Panic recovery with a generic response; fail closed (unknown errors become a detail-free 500); NaN and Inf handled; rate limiter with bounded memory (100,000 clients, ~16 MiB); CPU, memory and PID limits per container (`GOMEMLIMIT` below the memory limit); client and server timeouts; nginx retries a failed request on another replica. Open: React ErrorBoundary |
 
@@ -42,8 +42,9 @@ The main risks are abuse (denial of service), transport configuration and the so
 | `govulncheck` | CI, backend | a reachable vulnerability exists |
 | `npm audit` | CI, frontend | a HIGH or more severe vulnerability exists |
 | `npm audit signatures` | CI, frontend | a package signature is invalid |
-| Trivy | CI, images | a fixable HIGH or CRITICAL vulnerability exists |
-| Smoke test | CI, full stack | a header is missing, a weak cipher is accepted or the backend is exposed |
+| Trivy | CI and release, images | a fixable HIGH or CRITICAL vulnerability exists (a release never pushes such an image) |
+| Smoke test (`stack.yml`) | CI, full stack | a header is missing, a weak cipher is accepted or the backend is exposed |
+| Tag check | release | the tag is not `<component>/vX.Y.Z`, or `frontend/package.json` does not match it |
 
 ## Known open items
 

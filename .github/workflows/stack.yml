@@ -1,0 +1,55 @@
+name: Stack
+
+# Integration test of the full stack (nginx + backend) whenever either side or
+# the compose file changes: catches API contract or proxy regressions that the
+# per-component workflows cannot see.
+on:
+  push:
+    branches: [main]
+    paths:
+      ["backend/**", "frontend/**", "docker-compose.yml", ".github/workflows/stack.yml"]
+  pull_request:
+    paths:
+      ["backend/**", "frontend/**", "docker-compose.yml", ".github/workflows/stack.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: calculator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build images
+        run: docker compose build --pull
+      - name: Start stack
+        run: docker compose up -d --wait
+      - name: Smoke test
+        run: |
+          # HTTP only redirects to HTTPS
+          test "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' http://localhost:3000/)" \
+            = "301 https://localhost:3443/"
+          # SPA and API share the HTTPS origin (self-signed certificate, hence -k)
+          curl -fsSk https://localhost:3443/ | grep -q '<div id="root">'
+          curl -fsSk https://localhost:3443/api/v1/health
+          curl -fsSk https://localhost:3443/version.json
+          curl -fsSk -X POST https://localhost:3443/api/v1/calculate \
+            -H 'Content-Type: application/json' -d '{"operation":"add","a":1,"b":2}'
+          # Security headers are present
+          headers=$(curl -sk -D - -o /dev/null https://localhost:3443/)
+          for h in content-security-policy x-frame-options x-content-type-options permissions-policy; do
+            echo "$headers" | grep -qi "^$h:" || { echo "missing $h"; exit 1; }
+          done
+          # Only forward-secret AEAD ciphers on TLS 1.2
+          if echo | openssl s_client -connect localhost:3443 -tls1_2 -cipher AES256-SHA 2>/dev/null | grep -q "Cipher is AES256-SHA"; then
+            echo "weak TLS cipher accepted"; exit 1
+          fi
+          # The backend is not published on the host
+          if curl -s --max-time 3 http://localhost:8080/api/v1/health; then
+            echo "backend is reachable on the host"; exit 1
+          fi
+      - name: Tear down
+        if: always()
+        run: docker compose down

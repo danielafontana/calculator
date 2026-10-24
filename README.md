@@ -11,7 +11,7 @@ A calculator with a **Go** REST API backend and a **React + TypeScript** fronten
 | React UI with input validation, error handling and responsive layout | [`frontend/src`](frontend/src), [screenshots](#1-overview) |
 | Unit tests and coverage for both layers | [Testing](#7-testing): backend 98.3%, frontend 98.7%; HTML reports published by CI |
 | Setup, how to run, API usage, design rationale | [Quick start](#4-quick-start), [Development](#5-development), [Design decisions](#8-design-decisions) |
-| Docker deployment of frontend + backend | [`docker-compose.yml`](docker-compose.yml): `docker compose up --build` |
+| Docker deployment of frontend + backend | [`docker-compose.yml`](docker-compose.yml): `docker compose up --build`; independent [versioning and releases](#versioning-and-releases) per component |
 | Prompts used | [PROMPTS.md](PROMPTS.md) |
 | Security review (OWASP Top 10:2025) | [SECURITY.md](SECURITY.md) |
 
@@ -172,6 +172,55 @@ Without `VITE_API_URL`, the frontend sends relative requests (`/api/...`) and Vi
 
 Read and write timeouts are 10s. The server shuts down gracefully on `SIGINT` or `SIGTERM`, waiting up to 10s for in-flight requests.
 
+### Versioning and releases
+
+Frontend and backend are versioned, released and deployed independently. They only share the API contract: `/api/v1` stays backward compatible, so any frontend 1.x works with any backend 1.x. A breaking change would ship as `/api/v2`, served alongside v1 until the frontend moves.
+
+| | Backend | Frontend |
+|---|---|---|
+| Tag | `backend/vX.Y.Z` (also the Go module version, since the module lives in `backend/`) | `frontend/vX.Y.Z` (must match `frontend/package.json`) |
+| Image | `ghcr.io/<owner>/calculator-backend` | `ghcr.io/<owner>/calculator-frontend` |
+| Running version | `GET /api/v1/health` | `GET /version.json` |
+
+The project tag `vX.Y.Z` marks a delivered combination of both (e.g. `v1.0.0` = backend 1.0.0 + frontend 1.0.0).
+
+**Releasing a component.** Pushing its tag runs the same checks as CI. If they pass, the release workflow then:
+1. builds the image with the version from the tag;
+2. scans it with Trivy, before publishing;
+3. pushes `X.Y.Z` (plus `X.Y` and `latest` for stable versions) to GHCR, with SBOM and SLSA provenance attached;
+4. signs it with cosign (keyless);
+5. creates a GitHub release whose notes list only that component's commits.
+
+```bash
+# backend
+git tag -a backend/v1.1.0 -m "backend 1.1.0" && git push origin backend/v1.1.0
+
+# frontend: bump package.json first
+cd frontend && npm version 1.1.0 --no-git-tag-version && cd ..
+git commit -am "chore(frontend): release 1.1.0"
+git tag -a frontend/v1.1.0 -m "frontend 1.1.0" && git push origin frontend/v1.1.0
+```
+
+Pre-release tags (`backend/v1.2.0-rc.1`) publish only the exact version and are marked as pre-releases.
+
+**Deploying released versions.** Each service's image and tag can be set independently. To update only the backend, run:
+
+```bash
+export BACKEND_IMAGE=ghcr.io/<owner>/calculator-backend BACKEND_TAG=1.1.0
+export FRONTEND_IMAGE=ghcr.io/<owner>/calculator-frontend FRONTEND_TAG=1.0.0
+docker compose up -d --no-build --pull always backend
+```
+
+The frontend keeps running, and nginx picks up the new backend replicas through DNS within 10s.
+
+**Verifying an image signature:**
+
+```bash
+cosign verify ghcr.io/<owner>/calculator-backend:1.1.0 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/<owner>/<repo>/.github/workflows/release-image.yml@refs/tags/backend/v'
+```
+
 ## 6. API examples
 
 The examples target the development backend (`go run`, at `http://localhost:8080`). With Docker Compose, use `https://localhost:3443` and curl's `-k` flag, for example `curl -sk https://localhost:3443/api/v1/health`.
@@ -260,6 +309,8 @@ curl -s http://localhost:8080/api/v1/health
 {"status":"ok","version":"1.0.0"}
 ```
 
+`version` comes from the backend release tag (`backend/v1.0.0` → `1.0.0`); local builds report `dev`. The frontend reports its own version at `/version.json`.
+
 ### `GET /api/v1/operations`
 
 ```bash
@@ -298,14 +349,20 @@ npm run test -- --coverage   # text report + HTML in coverage/index.html
 | Layer | Target | Current |
 |---|---|---|
 | Backend (`./internal/...`, statements) | ≥ 85% | 98.3% |
-| Frontend (statements) | ≥ 80% | 98.7% (86 tests) |
+| Frontend (statements) | ≥ 80% | 98.7% (88 tests) |
 
-The Vitest configuration fails the build if frontend coverage drops below 80%. CI (`.github/workflows/ci.yml`) runs on every push, on every pull request and once a week. It runs:
-- lint, tests and build;
-- coverage reports: the HTML reports are uploaded as the `coverage-backend` and `coverage-frontend` artifacts, and the totals appear in the job summary;
-- security checks: `govulncheck`, `npm audit`, npm registry signatures and Trivy on the images (fails on fixable HIGH or CRITICAL findings);
-- an SBOM (CycloneDX) for each image;
-- a smoke test against the `docker compose` stack.
+The Vitest configuration fails the build if frontend coverage drops below 80%.
+
+**CI** (`.github/workflows/`) is split per component, so a change only runs the checks it affects:
+
+| Workflow | Runs when | What it does |
+|---|---|---|
+| `backend.yml` | `backend/**` changes, weekly | lint, `govulncheck`, tests with coverage, image build + Trivy scan |
+| `frontend.yml` | `frontend/**` changes, weekly | `npm audit` and signatures, lint, typecheck, tests with coverage, build, image build + Trivy scan |
+| `stack.yml` | either side or `docker-compose.yml` changes | full stack smoke test (TLS, proxy, headers, API contract) |
+| `release-backend.yml` / `release-frontend.yml` | a `backend/v*` / `frontend/v*` tag is pushed | see [Versioning and releases](#versioning-and-releases) |
+
+Coverage HTML reports are uploaded as the `coverage-backend` and `coverage-frontend` artifacts, and the totals appear in the job summary. Trivy fails the build on fixable HIGH or CRITICAL findings.
 
 Dependabot keeps Go and npm dependencies, Docker images and Actions up to date. The full security review, mapped to the OWASP Top 10:2025, is in [SECURITY.md](SECURITY.md).
 

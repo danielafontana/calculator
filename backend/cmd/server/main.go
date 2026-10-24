@@ -16,8 +16,9 @@ import (
 	"github.com/danielafontana/calculator/backend/internal/services"
 )
 
-// version is overridden at build time with -ldflags "-X main.version=...".
-var version = "1.0.0"
+// version is set at build time from the backend/vX.Y.Z release tag with
+// -ldflags "-X main.version=..."; untagged builds report "dev".
+var version = "dev"
 
 func main() {
 	if err := run(); err != nil {
