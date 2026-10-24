@@ -1,14 +1,18 @@
 import type { CalculateRequest, Operation } from '../types/calculator';
 import { isUnary } from './operations';
 
-/** Accepts integers, decimals (dot or comma) and scientific notation. */
-const NUMBER_PATTERN = /^[+-]?(\d+([.,]\d*)?|[.,]\d+)([eE][+-]?\d+)?$/;
+/**
+ * Accepts integers, dot decimals and scientific notation. Commas are rejected
+ * rather than guessed: in English "1,000" is a thousands separator, so
+ * reading it as a decimal comma would silently turn it into 1.
+ */
+const NUMBER_PATTERN = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
 
 /** Parses user input into a finite number, or null when invalid. */
 export function parseNumber(input: string): number | null {
   const value = input.trim();
   if (!NUMBER_PATTERN.test(value)) return null;
-  const parsed = Number(value.replace(',', '.'));
+  const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -54,6 +58,6 @@ export function validateForm({ operation, a, b }: FormValues): FormValidation {
 }
 
 export const FIELD_ERROR_MESSAGES: Record<FieldError, string> = {
-  required: 'Informe um número.',
-  invalid: 'Use apenas números, como 12, -3,5 ou 1e6.',
+  required: 'Enter a number.',
+  invalid: 'Use digits and a dot for decimals, like 12, -3.5 or 1e6.',
 };

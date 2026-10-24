@@ -48,7 +48,7 @@ export function Calculator() {
     <main className={styles.page}>
       <div className={styles.instrument}>
         <header className={styles.header}>
-          <h1 className={styles.title}>Calculadora</h1>
+          <h1 className={styles.title}>Calculator</h1>
         </header>
 
         <div className={styles.display}>
@@ -86,10 +86,10 @@ export function Calculator() {
 
           <div className={styles.actions}>
             <button type="button" className={styles.clear} onClick={handleClear}>
-              Limpar
+              Clear
             </button>
             <button type="submit" className={styles.equals} disabled={!validation.valid || loading}>
-              <span aria-hidden="true">=</span> Calcular
+              <span aria-hidden="true">=</span> Calculate
             </button>
           </div>
         </form>

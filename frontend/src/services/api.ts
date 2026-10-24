@@ -75,9 +75,9 @@ async function request<T>(path: string, guard: Guard<T>, init?: RequestInit): Pr
       response = await fetch(`${BASE_URL}${path}`, { ...init, signal: controller.signal });
     } catch {
       if (controller.signal.aborted) {
-        throw new ApiError('A requisição excedeu o tempo limite.', 'TIMEOUT');
+        throw new ApiError('The request timed out.', 'TIMEOUT');
       }
-      throw new ApiError('Não foi possível conectar ao servidor.', 'NETWORK_ERROR');
+      throw new ApiError('Could not connect to the server.', 'NETWORK_ERROR');
     }
 
     const body: unknown = await response.json().catch(() => undefined);
@@ -87,7 +87,7 @@ async function request<T>(path: string, guard: Guard<T>, init?: RequestInit): Pr
         throw new ApiError(body.error, body.code, response.status);
       }
       throw new ApiError(
-        `Resposta inesperada do servidor (HTTP ${String(response.status)}).`,
+        `Unexpected response from the server (HTTP ${String(response.status)}).`,
         'UNEXPECTED_RESPONSE',
         response.status,
       );
@@ -95,7 +95,7 @@ async function request<T>(path: string, guard: Guard<T>, init?: RequestInit): Pr
 
     if (!guard(body)) {
       throw new ApiError(
-        'Resposta inesperada do servidor.',
+        'Unexpected response from the server.',
         'UNEXPECTED_RESPONSE',
         response.status,
       );

@@ -16,8 +16,8 @@ describe('<ResultDisplay />', () => {
   it('shows a spinner while loading', () => {
     render(<ResultDisplay result={null} error={null} loading />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Calculando…');
-    expect(screen.getByRole('region', { name: 'Resultado' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('status')).toHaveTextContent('Calculating…');
+    expect(screen.getByRole('region', { name: 'Result' })).toHaveAttribute('aria-busy', 'true');
   });
 
   it('shows the formatted result with its expression', () => {
@@ -29,8 +29,8 @@ describe('<ResultDisplay />', () => {
       />,
     );
 
-    expect(screen.getByTestId('result-value')).toHaveTextContent('1.234,5');
-    expect(screen.getByText('2.469 × 0,5 =')).toBeInTheDocument();
+    expect(screen.getByTestId('result-value')).toHaveTextContent('1,234.5');
+    expect(screen.getByText('2,469 × 0.5 =')).toBeInTheDocument();
   });
 
   it('shows an error banner with a user-facing message', () => {
@@ -43,8 +43,8 @@ describe('<ResultDisplay />', () => {
     );
 
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Não foi possível calcular');
-    expect(alert).toHaveTextContent('Não existe raiz quadrada real de número negativo');
+    expect(alert).toHaveTextContent('Could not calculate');
+    expect(alert).toHaveTextContent('Negative numbers have no real square root');
   });
 
   it('prioritizes loading over a previous error', () => {

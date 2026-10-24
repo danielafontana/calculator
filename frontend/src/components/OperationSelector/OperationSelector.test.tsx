@@ -9,22 +9,22 @@ describe('<OperationSelector />', () => {
   it('renders one radio per operation inside a labelled group', () => {
     render(<OperationSelector value="add" onChange={vi.fn()} operations={OPERATIONS} />);
 
-    expect(screen.getByRole('group', { name: 'Operação' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Operation' })).toBeInTheDocument();
     expect(screen.getAllByRole('radio')).toHaveLength(OPERATIONS.length);
   });
 
   it('checks the current value', () => {
     render(<OperationSelector value="divide" onChange={vi.fn()} operations={OPERATIONS} />);
 
-    expect(screen.getByRole('radio', { name: /dividir/i })).toBeChecked();
-    expect(screen.getByRole('radio', { name: /somar/i })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: /divide/i })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /^add/i })).not.toBeChecked();
   });
 
   it('calls onChange with the chosen operation', async () => {
     const onChange = vi.fn();
     render(<OperationSelector value="add" onChange={onChange} operations={OPERATIONS} />);
 
-    await userEvent.click(screen.getByRole('radio', { name: /porcentagem/i }));
+    await userEvent.click(screen.getByRole('radio', { name: /percentage/i }));
 
     expect(onChange).toHaveBeenCalledWith('percentage');
   });
@@ -34,7 +34,7 @@ describe('<OperationSelector />', () => {
     render(<OperationSelector value="add" onChange={onChange} operations={OPERATIONS} />);
 
     await userEvent.tab();
-    expect(screen.getByRole('radio', { name: /somar/i })).toHaveFocus();
+    expect(screen.getByRole('radio', { name: /^add/i })).toHaveFocus();
     await userEvent.keyboard('{ArrowRight}');
 
     expect(onChange).toHaveBeenCalledWith('subtract');

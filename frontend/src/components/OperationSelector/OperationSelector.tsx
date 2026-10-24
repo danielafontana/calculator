@@ -18,7 +18,7 @@ export function OperationSelector({
 }: OperationSelectorProps) {
   return (
     <fieldset className={styles.selector} disabled={disabled}>
-      <legend className={styles.legend}>Operação</legend>
+      <legend className={styles.legend}>Operation</legend>
       {operations.map((operation) => {
         const meta = OPERATION_META[operation];
         return (
