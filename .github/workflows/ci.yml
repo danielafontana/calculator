@@ -58,10 +58,16 @@ jobs:
         run: docker compose up -d --build --wait
       - name: Smoke test
         run: |
-          curl -fsS http://localhost:8080/api/v1/health
-          curl -fsS -X POST http://localhost:8080/api/v1/calculate \
+          # HTTP only redirects to HTTPS
+          test "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' http://localhost:3000/)" \
+            = "301 https://localhost:3443/"
+          # SPA and API share the HTTPS origin (self-signed certificate, hence -k)
+          curl -fsSk https://localhost:3443/ | grep -q '<div id="root">'
+          curl -fsSk https://localhost:3443/api/v1/health
+          curl -fsSk -X POST https://localhost:3443/api/v1/calculate \
             -H 'Content-Type: application/json' -d '{"operation":"add","a":1,"b":2}'
-          curl -fsS http://localhost:3000/ | grep -q '<div id="root">'
+          # The backend is not published on the host
+          ! curl -s --max-time 3 http://localhost:8080/api/v1/health
       - name: Tear down
         if: always()
         run: docker compose down

@@ -16,9 +16,15 @@ A aplicação faz sete operações: soma, subtração, multiplicação, divisão
 ┌──────────────────────────── Browser ────────────────────────────┐
 │  React 18 + TS (Vite)                                           │
 │  components ──► hooks (useCalculator, useOperations) ──► api.ts │
-│  (UI apenas)    (estado, validação)                (fetch, 10s) │
+│  (UI apenas)    (estado, validação)        (fetch /api, 10s)    │
 └───────────────────────────────┬─────────────────────────────────┘
-                                │ HTTP/JSON  (CORS)
+                                │ HTTPS (TLS 1.2/1.3, HTTP/2) — uma única origem
+┌───────────────────────────────▼────────────────── nginx ────────┐
+│ :80   /healthz ou 301 → HTTPS                                   │
+│ :443  /        → SPA estática (dist/)                           │
+│       /api/*   → proxy_pass http://backend:8080 (rede interna)  │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ HTTP, rede Docker (porta não publicada)
 ┌───────────────────────────────▼──────────── Go 1.26 net/http ───┐
 │ middleware: Logger(slog JSON) → Recover → CORS → [RequireJSON]  │
 │        │                                                        │
@@ -67,10 +73,25 @@ frontend/
 docker compose up --build
 ```
 
-- Frontend: <http://localhost:3000>
-- API: <http://localhost:8080/api/v1/health>
+- Aplicação: <https://localhost:3443> (<http://localhost:3000> redireciona para HTTPS)
+- API, pelo mesmo endereço: <https://localhost:3443/api/v1/health>
 
-Para mudar portas, origens de CORS ou a URL da API, copie `.env.example` para `.env` e edite os valores.
+Sem certificado montado, o nginx gera um **certificado autoassinado** na inicialização, e o navegador mostra um aviso na primeira visita. Para continuar, aceite o risco (em "Avançado"). No `curl`, use `-k`. O backend não é publicado no host: ele só é acessível pelo nginx, na rede interna do Docker.
+
+Para mudar portas ou origens de CORS, copie `.env.example` para `.env` e edite os valores.
+
+### HTTPS em produção
+
+Monte o certificado real (por exemplo do Let's Encrypt, via certbot) em `/etc/nginx/certs` com os nomes `fullchain.pem` e `privkey.pem`, descomentando o volume no `docker-compose.yml`:
+
+```yaml
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+```
+
+Com o certificado presente, o script de inicialização não gera o autoassinado. Em produção, use `HTTP_PORT=80` e `HTTPS_PORT=443`.
+
+Se quiser HTTPS local sem aviso do navegador, gere o certificado com o [mkcert](https://github.com/FiloSottile/mkcert) (`mkcert -cert-file certs/fullchain.pem -key-file certs/privkey.pem localhost 127.0.0.1`) e monte-o como acima. A CA do mkcert precisa estar confiada no sistema onde o navegador roda.
 
 ## 5. Development
 
@@ -109,6 +130,8 @@ Sem `VITE_API_URL` definida, o frontend faz requisições relativas (`/api/...`)
 Os timeouts de leitura e escrita são de 10s. O servidor encerra de forma graciosa ao receber `SIGINT` ou `SIGTERM`: espera até 10s pelas requisições em andamento.
 
 ## 6. API examples
+
+Os exemplos usam o backend de desenvolvimento (`go run`, em `http://localhost:8080`). Com Docker Compose, use `https://localhost:3443` e o parâmetro `-k` do curl, por exemplo `curl -sk https://localhost:3443/api/v1/health`.
 
 ### `POST /api/v1/calculate`
 
@@ -242,7 +265,15 @@ A configuração do Vitest falha o build se a cobertura do frontend ficar abaixo
 - **Operandos como ponteiros** (`*float64`), para distinguir "ausente" de `0`.
 - **`-0` é normalizado para `0`**, e o JSON nunca devolve `-0`.
 - **Na porcentagem**, quando `a × b` estoura mas o resultado final cabe, o cálculo usa `a × (b / 100)`.
-- **`VITE_API_URL` é build arg**, não variável de runtime. O Vite embute a variável no bundle durante o build, então defini-la no `environment` do container nginx não teria efeito.
+- **`VITE_API_URL` é build arg**, não variável de runtime, e fica vazia por padrão. O Vite embute o valor no bundle durante o build, e vazio significa requisições relativas (`/api/...`).
+
+**HTTPS e mesma origem.** O nginx termina o TLS (TLS 1.2/1.3 e HTTP/2), serve a SPA e repassa `/api/*` ao backend pela rede interna. Isso traz quatro vantagens:
+- o tráfego entre navegador e servidor é cifrado;
+- o backend não fica exposto à internet;
+- o navegador fala com uma única origem, então o CORS deixa de ser necessário para o próprio frontend;
+- o nginx limita o corpo das requisições em 1 MiB antes de chegar ao Go.
+
+O backend continua falando HTTP puro, mas só dentro da rede do Docker. JWT ou sessão só entram se o projeto passar a ter usuários, porque autenticação não substitui TLS e, numa SPA pública, um token sem login pode ser copiado por qualquer um.
 - **`useOperations`** busca as operações na API e cai para a lista local se a API estiver fora do ar, para que a interface continue utilizável.
 - **`useCalculator`** descarta respostas de requisições substituídas por outras mais recentes, o que evita race conditions.
 
@@ -253,11 +284,14 @@ A configuração do Vitest falha o build se a cobertura do frontend ficar abaixo
 - **Entrada no frontend:** aceita `12`, `-3,5`, `.5`, `1e6` e vírgula ou ponto como separador decimal. Separadores de milhar não são aceitos (`1.000,5` é ambíguo).
 - **Sem persistência:** nenhum cálculo é armazenado, e não há histórico nem autenticação.
 - **Nomes de operação** diferenciam maiúsculas e minúsculas (`"ADD"` é inválido).
-- **Tamanho do corpo** da requisição limitado a 1 MiB.
+- **Tamanho do corpo** da requisição limitado a 1 MiB (no nginx e no backend).
+- **Certificado autoassinado** por padrão, válido para `localhost` e `127.0.0.1` por 365 dias. Serve só para uso local.
 
 ## 10. Future improvements
 
-- **Autenticação:** API keys ou OAuth2/JWT, com rate limiting por cliente.
+- **Autenticação:** sessão em cookie `HttpOnly`/`SameSite` ou OIDC, quando houver usuários.
+- **Rate limiting** por IP no backend (429), usando o `X-Forwarded-For` enviado pelo nginx.
+- **Headers de segurança adicionais:** `Content-Security-Policy` e HSTS (este último só com certificado real).
 - **Histórico:** persistir cálculos (PostgreSQL) com paginação, e no frontend uma lista dos últimos resultados reutilizáveis.
 - **WebSocket:** cálculo em tempo real enquanto o usuário digita e sincronização do histórico entre abas.
 - **Expressões:** avaliar expressões completas (`2 * (3 + 4)`) com parser próprio.
