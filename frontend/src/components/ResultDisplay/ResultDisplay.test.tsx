@@ -5,52 +5,49 @@ import { ApiError } from '../../services/api';
 import { ResultDisplay } from './ResultDisplay';
 
 describe('<ResultDisplay />', () => {
-  it('shows a placeholder when idle', () => {
-    render(<ResultDisplay result={null} error={null} loading={false} />);
+  it('shows the value and the expression', () => {
+    render(<ResultDisplay value="1,024" expression="2 ^ 10 =" error={null} loading={false} />);
 
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByTestId('result-value')).toHaveTextContent('1,024');
+    expect(screen.getByTestId('expression')).toHaveTextContent('2 ^ 10 =');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it('shrinks long values', () => {
+    const { rerender } = render(
+      <ResultDisplay value="12" expression="" error={null} loading={false} />,
+    );
+    expect(screen.getByTestId('result-value')).toHaveAttribute('data-size', 'large');
+
+    rerender(<ResultDisplay value="123,456,789" expression="" error={null} loading={false} />);
+    expect(screen.getByTestId('result-value')).toHaveAttribute('data-size', 'medium');
+
+    rerender(
+      <ResultDisplay value="1,234,567,890,123,456" expression="" error={null} loading={false} />,
+    );
+    expect(screen.getByTestId('result-value')).toHaveAttribute('data-size', 'small');
+  });
+
   it('shows a spinner while loading', () => {
-    render(<ResultDisplay result={null} error={null} loading />);
+    render(<ResultDisplay value="5" expression="2 + 3" error={null} loading />);
 
     expect(screen.getByRole('status')).toHaveTextContent('Calculating…');
     expect(screen.getByRole('region', { name: 'Result' })).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('shows the formatted result with its expression', () => {
+  it('shows an error banner instead of the value', () => {
     render(
       <ResultDisplay
-        result={{ result: 1234.5, operation: 'multiply', operands: { a: 2469, b: 0.5 } }}
-        error={null}
-        loading={false}
-      />,
-    );
-
-    expect(screen.getByTestId('result-value')).toHaveTextContent('1,234.5');
-    expect(screen.getByText('2,469 × 0.5 =')).toBeInTheDocument();
-  });
-
-  it('shows an error banner with a user-facing message', () => {
-    render(
-      <ResultDisplay
-        result={null}
-        error={new ApiError('square root of a negative number', 'NEGATIVE_SQRT', 400)}
+        value="1"
+        expression="1 ÷"
+        error={new ApiError('division by zero', 'DIVISION_BY_ZERO', 400)}
         loading={false}
       />,
     );
 
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('Could not calculate');
-    expect(alert).toHaveTextContent('Negative numbers have no real square root');
-  });
-
-  it('prioritizes loading over a previous error', () => {
-    render(<ResultDisplay result={null} error={new ApiError('x', 'TIMEOUT')} loading />);
-
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(alert).toHaveTextContent('Cannot divide by zero');
+    expect(screen.queryByTestId('result-value')).not.toBeInTheDocument();
   });
 });

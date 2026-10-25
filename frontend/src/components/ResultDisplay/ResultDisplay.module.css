@@ -1,81 +1,79 @@
 .display {
+  position: relative;
   display: grid;
-  align-items: end;
-  min-height: 132px;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lcd);
-  background: linear-gradient(180deg, rgb(0 0 0 / 0.06), transparent 40%), var(--lcd);
-  color: var(--lcd-ink);
-  box-shadow:
-    inset 0 3px 8px rgb(0 0 0 / 0.28),
-    0 0 0 3px var(--lcd-bezel);
-  overflow: hidden;
-}
-
-.result {
-  display: grid;
-  justify-items: end;
+  align-content: end;
   gap: var(--space-1);
-  min-width: 0;
+  min-height: 132px;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  color: var(--display-ink);
 }
 
 .expression {
+  min-height: 1.4em;
   margin: 0;
-  font-family: var(--font-lcd);
-  font-size: 0.875rem;
-  color: var(--lcd-ink-soft);
+  font-size: 0.9375rem;
+  color: var(--display-ink-soft);
   text-align: right;
   overflow-wrap: anywhere;
 }
 
 .value {
-  display: block;
-  max-width: 100%;
-  font-family: var(--font-lcd);
-  font-size: clamp(2rem, 9vw, 3rem);
-  font-weight: 500;
+  font-size: 3rem;
+  font-weight: 600;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   text-align: right;
   overflow-wrap: anywhere;
 }
 
-.idle {
-  color: var(--lcd-ink-soft);
+.value[data-size='medium'] {
+  font-size: 2.25rem;
 }
 
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  font-family: var(--font-lcd);
-  font-size: 1rem;
-}
-
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 3px solid var(--lcd-ink-soft);
-  border-top-color: var(--lcd-ink);
-  border-radius: 50%;
-  animation: spin 700ms linear infinite;
+.value[data-size='small'] {
+  font-size: 1.625rem;
 }
 
 .error {
   display: grid;
-  gap: var(--space-1);
+  gap: 2px;
   padding: var(--space-2) var(--space-3);
   border-left: 4px solid var(--danger-strong);
-  border-radius: 6px;
-  background: var(--danger);
+  border-radius: var(--radius-key);
+  background: var(--danger-bg);
   color: var(--danger-ink);
   font-size: 0.9375rem;
   line-height: 1.4;
+  text-align: left;
 }
 
 .errorTitle {
   font-weight: 700;
+}
+
+.loading {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+}
+
+.spinner {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--display-ink-soft);
+  border-top-color: var(--display-ink);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @keyframes spin {
@@ -86,18 +84,11 @@
 
 @media (min-width: 768px) {
   .display {
-    min-height: 152px;
-    padding: var(--space-4) var(--space-5);
+    min-height: 148px;
   }
 
-  .expression {
-    font-size: 1rem;
-  }
-}
-
-@media (min-width: 1024px) {
   .value {
-    font-size: 3.5rem;
+    font-size: 3.25rem;
   }
 }
 

@@ -1,67 +1,49 @@
 :root {
-  --font-display: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-lcd: 'Chivo Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  /* System UI font, like the desktop calculators it imitates; no web fonts. */
+  --font-ui: system-ui, -apple-system, 'Segoe UI Variable', 'Segoe UI', Roboto, sans-serif;
 
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
-  --space-6: 32px;
+  --space-key-gap: 3px;
 
-  --radius-device: 22px;
-  --radius-lcd: 10px;
-  --radius-key: 10px;
-  --radius-field: 8px;
+  --radius-card: 12px;
+  --radius-key: 6px;
 
-  /* Page and instrument body */
-  --page: #e6ebf1;
-  --body: #28313c;
-  --body-ink: #eef2f6;
-  --body-ink-soft: #b7c2cf;
+  /* Very dark purple background; keys a few shades lighter. */
+  --page: #0d0716;
+  --body: #1a0f2b;
+  --body-border: #2c1f45;
 
-  /* Keys */
-  --key: #45505e;
-  --key-ink: #f1f4f7;
-  --key-highlight: rgb(255 255 255 / 0.08);
-  --key-edge: #1a2028;
-  --key-selected: #d7dfe8;
-  --key-selected-ink: #1d242d;
+  --display-ink: #f7f2ff;
+  --display-ink-soft: #b6a5d8;
 
-  /* Equals key */
-  --accent: #e3a33b;
-  --accent-ink: #2a1c05;
-  --accent-edge: #9a6a1c;
-  --accent-disabled: #59606a;
-  --accent-disabled-ink: #aab3bd;
+  --key-digit: #3b2a5b;
+  --key-digit-hover: #46346b;
+  --key-digit-active: #33244e;
+  --key-ink: #f7f2ff;
 
-  /* LCD */
-  --lcd: #c9d6b8;
-  --lcd-ink: #1e2a19;
-  --lcd-ink-soft: #5d6c53;
-  --lcd-bezel: #1c232b;
+  --key-fn: #2c1f46;
+  --key-fn-hover: #372955;
+  --key-fn-active: #261a3c;
+  --key-fn-ink: #e4d9fa;
 
-  /* Fields */
-  --field: #1f262f;
-  --field-ink: #f1f4f7;
-  --field-border: #56616f;
-  --field-placeholder: #7f8a97;
+  --key-pending: #4b3777;
+  --key-pending-ring: #a68be0;
 
-  /* Feedback */
-  --danger: #f6d5d1;
-  --danger-ink: #5c130d;
-  --danger-strong: #c2352b;
-  --danger-on-body: #ffb4aa;
-  --focus: #7fb6ff;
+  --key-equals: #c6a3ff;
+  --key-equals-hover: #d3b7ff;
+  --key-equals-active: #b58ef5;
+  --key-equals-ink: #1a0f2b;
 
-  color-scheme: light;
-}
+  --danger-bg: #3a1530;
+  --danger-ink: #ffc9d3;
+  --danger-strong: #ff6b88;
+  --focus: #e3cdff;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --page: #0f1419;
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 *,
@@ -77,13 +59,12 @@ html {
 body {
   margin: 0;
   background: var(--page);
-  color: var(--body-ink);
-  font-family: var(--font-display);
+  color: var(--display-ink);
+  font-family: var(--font-ui);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-button,
-input {
+button {
   font: inherit;
 }

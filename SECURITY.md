@@ -22,7 +22,7 @@ The main risks are abuse (denial of service), transport configuration and the so
 | **A05** Injection | ✅ | No SQL, shell or server-side templates. JSON decoded into fixed types (`float64`, validated enum); JSON logs (`slog`) prevent log line injection; React escapes all output; CSP without `unsafe-inline` |
 | **A06** Insecure Design | ✅ | Validation in both tiers; explicit limits (1 MiB body, 10s timeouts, rate limit); misuse-case tests (overflow, NaN, large body, IP rotation, forged headers) |
 | **A07** Authentication Failures | ➖ | Not applicable: the API is public by design. If users are added, use `HttpOnly`/`Secure`/`SameSite` session cookies or OIDC |
-| **A08** Software/Data Integrity Failures | ✅ / ⚠️ | Actions pinned by commit SHA; pinned golangci-lint and govulncheck versions; released images signed with cosign (keyless, verifiable against the release workflow identity) and published with SBOM and SLSA provenance attestations; images are scanned before they are pushed; no serialized data accepted without validation. Open: Google Fonts CSS loaded without SRI |
+| **A08** Software/Data Integrity Failures | ✅ / ⚠️ | Actions pinned by commit SHA; pinned golangci-lint and govulncheck versions; released images signed with cosign (keyless, verifiable against the release workflow identity) and published with SBOM and SLSA provenance attestations; images are scanned before they are pushed; no serialized data accepted without validation. No third-party resources are loaded by the page |
 | **A09** Logging & Alerting Failures | ✅ | One JSON log line per request with `request_id`, `client_ip` (real client behind the proxy), status and duration; nginx logs the same `rid`; 4xx at WARN, 5xx and panics at ERROR with stack trace. Alerting depends on the log platform (out of scope) |
 | **A10** Mishandling of Exceptional Conditions | ✅ / ⚠️ | Panic recovery with a generic response; fail closed (unknown errors become a detail-free 500); NaN and Inf handled; rate limiter with bounded memory (100,000 clients, ~16 MiB); CPU, memory and PID limits per container (`GOMEMLIMIT` below the memory limit); client and server timeouts; nginx retries a failed request on another replica. Open: React ErrorBoundary |
 
@@ -52,7 +52,6 @@ The main risks are abuse (denial of service), transport configuration and the so
 |---|---|---|
 | Medium | Log a warning when the self-signed certificate is used and document a production checklist (HSTS, real certificate) | A04/A02 |
 | Low | Read-only root filesystem (`read_only: true` with `tmpfs` for the paths nginx writes at startup) | A02 |
-| Low | Self-host the fonts: removes Google Fonts from the CSP and from user traffic (privacy) | A08 |
 | Low | React ErrorBoundary, so a rendering error does not leave a blank screen | A10 |
 | Low | Move from ESLint 8 (end of life) to ESLint 9 with flat config. Affects the build only, not the final image | A03 |
 | Info | `DisallowUnknownFields` in the JSON decoder | A05 |

@@ -8,7 +8,7 @@ A calculator with a **Go** REST API backend and a **React + TypeScript** fronten
 |---|---|
 | Add, subtract, multiply, divide + power, square root, percentage | [`backend/internal/services/calculator.go`](backend/internal/services/calculator.go) |
 | REST API with validation, edge cases and JSON responses | [API examples](#6-api-examples), [error codes](#error-codes) |
-| React UI with input validation, error handling and responsive layout | [`frontend/src`](frontend/src), [screenshots](#1-overview) |
+| React UI (standard calculator keypad, mouse and keyboard) with error handling and responsive layout | [`frontend/src`](frontend/src), [screenshots](#1-overview) |
 | Unit tests and coverage for both layers | [Testing](#7-testing): backend 98.3%, frontend 98.7%; HTML reports published by CI |
 | Setup, how to run, API usage, design rationale | [Quick start](#4-quick-start), [Development](#5-development), [Design decisions](#8-design-decisions) |
 | Docker deployment of frontend + backend | [`docker-compose.yml`](docker-compose.yml): `docker compose up --build`; independent [versioning and releases](#versioning-and-releases) per component |
@@ -17,7 +17,17 @@ A calculator with a **Go** REST API backend and a **React + TypeScript** fronten
 
 ## 1. Overview
 
-The app supports seven operations: addition, subtraction, multiplication, division, power, square root and percentage. The frontend validates input, calls the API and shows the result on an LCD-style display. Division by zero, square root of a negative number and overflow produce messages that explain the problem and how to fix it.
+The app supports seven operations: addition, subtraction, multiplication, division, power, square root and percentage. The frontend is a standard calculator: a keypad with digits 0-9 and icon-only function keys (`%`, `CE`, `C`, `⌫`, `x²`, `xʸ`, `√x`, `÷`, `×`, `−`, `+`, `±`, `.`, `=`), usable with the mouse, touch or the physical keyboard. Every calculation is done by the backend API. Division by zero, square root of a negative number and overflow produce messages that explain the problem and how to fix it.
+
+**Keyboard shortcuts**
+
+| Key | Action | Key | Action |
+|---|---|---|---|
+| `0`–`9` | digits | `.` or `,` | decimal point |
+| `+` `-` `*` `/` | add, subtract, multiply, divide | `^` | power (xʸ) |
+| `%` | percentage | `@` / `q` | square root / square |
+| `Enter` or `=` | equals | `F9` | toggle sign |
+| `Backspace` | delete last digit | `Delete` / `Esc` | clear entry (CE) / clear all (C) |
 
 | Desktop (≥ 1024px) | Tablet (≥ 768px) | Mobile (< 480px) |
 |---|---|---|
@@ -28,8 +38,8 @@ The app supports seven operations: addition, subtraction, multiplication, divisi
 ```
 ┌──────────────────────────── Browser ────────────────────────────┐
 │  React 18 + TS (Vite)                                           │
-│  components ──► hooks (useCalculator, useOperations) ──► api.ts │
-│  (UI only)      (state, validation)        (fetch /api, 10s)    │
+│  components ──► hooks (useKeypad, useCalculator) ──► api.ts     │
+│  (UI only)      (keypad state machine)      (fetch /api, 10s)   │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ HTTPS (TLS 1.2/1.3, HTTP/2), single origin
 ┌───────────────────────────────▼────────────────── nginx ────────┐
@@ -67,11 +77,11 @@ backend/
 frontend/
   nginx/                    nginx templates (TLS, proxy, security headers)
   src/
-    components/             Calculator (container), OperationSelector, ResultDisplay, NumberField
-    hooks/                  useCalculator, useOperations
+    components/             Calculator (container), ResultDisplay, Keypad (+ key layout in keys.ts)
+    hooks/                  useKeypad (keys, keyboard), useCalculator (API state), useOperations
     services/api.ts         typed HTTP client (ApiError, timeout)
     types/                  domain types and discriminated unions
-    utils/                  validation, formatting, operation metadata
+    utils/                  keypad state machine (pure), formatting, operation metadata
 ```
 
 **Request flow:** `POST /api/v1/calculate` passes through these steps:
@@ -376,7 +386,7 @@ Dependabot keeps Go and npm dependencies, Docker images and Actions up to date. 
 
 **Why not a decimal type (BigDecimal).** Go has no decimal type in the standard library (it would need `shopspring/decimal` or `math/big`). JSON would lose the precision anyway unless numbers were sent as strings, which would break the required contract (`"a": 10`) and force the frontend to use another library. Square roots and fractional powers are irrational and have no exact decimal representation either. For a general-purpose calculator, float64 with `Inf`/`NaN` detection is the right trade-off; for money, a decimal type would be the choice.
 
-**CSS Modules instead of Tailwind.** The scope is small and the look is specific (raised keys, LCD display). CSS Modules give local scoping with no runtime or extra build dependency, keep the markup readable and use design tokens as CSS variables (`index.css`). Tailwind pays off in a larger design system or in a team that already uses it.
+**CSS Modules instead of Tailwind.** The scope is small and the look is specific (a desktop-style calculator in dark purple tones). CSS Modules give local scoping with no runtime or extra build dependency, keep the markup readable and use design tokens as CSS variables (`index.css`). Tailwind pays off in a larger design system or in a team that already uses it.
 
 **Other decisions:**
 - **Validation via struct tags** (`go-playground/validator`) with a custom `operation` rule, so the enum lives in one place (`models.Operations()`).
@@ -397,7 +407,7 @@ Dependabot keeps Go and npm dependencies, Docker images and Actions up to date. 
 The backend still speaks plain HTTP, but only inside the Docker network. JWT or sessions are only worth adding once the project has users: authentication does not replace TLS, and in a public SPA any token obtained without a login can be copied by anyone.
 
 **Security headers.** They live in a snippet (`frontend/nginx/security-headers.inc.template`) included in every block that sends responses, because an `add_header` inside a `location` drops the ones inherited from `server`:
-- `Content-Security-Policy`: scripts only from the same origin; styles and fonts also from Google Fonts; `connect-src 'self'`; `frame-ancestors 'none'`. Limits the damage of an XSS.
+- `Content-Security-Policy`: scripts, styles, fonts and images only from the same origin (the UI uses the system font, no web fonts); `connect-src 'self'`; `frame-ancestors 'none'`. Limits the damage of an XSS.
 - `Strict-Transport-Security`: configurable, and off (`max-age=0`) with the self-signed certificate. With HSTS on, browsers would require a certificate they reject and the site would become unreachable.
 - `X-Frame-Options: DENY`, against clickjacking.
 - `X-Content-Type-Options: nosniff`.
@@ -440,7 +450,8 @@ nginx (TLS termination) saturates first, so `FRONTEND_CPUS` is the first knob to
 
 - **Numeric limits:** operands and results must fit in float64 (±1.797×10³⁰⁸). Larger operands are rejected while parsing (`INVALID_PAYLOAD`), and infinite results become `OVERFLOW`.
 - **Precision:** about 15 to 17 significant digits. The frontend switches to scientific notation for values ≥ 10¹⁵ or < 10⁻⁶.
-- **Frontend input:** accepts `12`, `-3.5`, `.5`, `1e6`, with a dot as decimal separator. Commas are rejected with a clear message instead of guessed: `1,000` could mean one thousand or one, and guessing wrong would silently give a wrong result. Results are formatted with en-US conventions (`1,234.5`).
+- **Frontend input:** numbers are entered on the keypad, so they are always valid; up to 16 digits, one decimal point. On the physical keyboard both `.` and `,` type the decimal point (on a keypad there is no ambiguity). Numbers are formatted with en-US conventions (`1,234.5`).
+- **Percentage** follows the API: `200 % 15 =` is 15% of 200 (30).
 - **No persistence:** no calculation is stored; there is no history and no authentication.
 - **Operation names** are case-sensitive (`"ADD"` is invalid).
 - **Request body** limited to 1 MiB (in nginx and in the backend).
@@ -451,7 +462,6 @@ nginx (TLS termination) saturates first, so `FRONTEND_CPUS` is the first knob to
 
 - **Authentication:** `HttpOnly`/`SameSite` session cookies or OIDC, once there are users.
 - **Distributed rate limiting** (Redis), to run several backend replicas with one shared limit.
-- **CSP without third parties:** self-host the fonts and drop Google Fonts from the policy.
 - **History:** persist calculations (PostgreSQL) with pagination, and show recent results in the frontend.
 - **WebSocket:** live results while typing and history sync across tabs.
 - **Expressions:** evaluate full expressions (`2 * (3 + 4)`) with a dedicated parser.

@@ -5,9 +5,9 @@
 # Rendered to /etc/nginx/conf.d/security-headers.inc (the .inc suffix keeps it
 # out of the conf.d/*.conf glob loaded by the main nginx.conf).
 
-# Only our own scripts run; styles and fonts may also come from Google Fonts.
+# Everything (scripts, styles, fonts, images) comes from our own origin.
 # connect-src must list the API origin when VITE_API_URL points elsewhere.
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src ${CSP_CONNECT_SRC}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src ${CSP_CONNECT_SRC}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests" always;
 
 # max-age=0 by default: HSTS must only be enabled with a trusted certificate,
 # otherwise browsers pin the host to a certificate they reject.
