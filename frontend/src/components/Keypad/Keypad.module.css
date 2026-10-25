@@ -1,0 +1,95 @@
+/* Rows stretch to fill the space the layout gives the keypad (phones). */
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+  gap: var(--space-key-gap);
+}
+
+.key {
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--radius-key);
+  font-family: var(--font-ui);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 80ms ease-out;
+}
+
+.key[data-kind='digit'] {
+  background: var(--key-digit);
+  color: var(--key-ink);
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+
+.key[data-kind='digit']:hover:not(:disabled) {
+  background: var(--key-digit-hover);
+}
+
+.key[data-kind='digit']:active:not(:disabled) {
+  background: var(--key-digit-active);
+}
+
+.key[data-kind='function'],
+.key[data-kind='operator'] {
+  background: var(--key-fn);
+  color: var(--key-fn-ink);
+}
+
+.key[data-kind='operator'] {
+  font-size: 1.5rem;
+}
+
+.key[data-kind='function']:hover:not(:disabled),
+.key[data-kind='operator']:hover:not(:disabled) {
+  background: var(--key-fn-hover);
+}
+
+.key[data-kind='function']:active:not(:disabled),
+.key[data-kind='operator']:active:not(:disabled) {
+  background: var(--key-fn-active);
+}
+
+/* Operator waiting for its right operand. */
+.key[aria-pressed='true'] {
+  background: var(--key-pending);
+  box-shadow: inset 0 0 0 1px var(--key-pending-ring);
+}
+
+.key[data-kind='equals'] {
+  background: var(--key-equals);
+  color: var(--key-equals-ink);
+  font-size: 1.5rem;
+}
+
+.key[data-kind='equals']:hover:not(:disabled) {
+  background: var(--key-equals-hover);
+}
+
+.key[data-kind='equals']:active:not(:disabled) {
+  background: var(--key-equals-active);
+}
+
+.key:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.key:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+@media (min-width: 768px) {
+  .key {
+    min-height: 60px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key {
+    transition: none;
+  }
+}
