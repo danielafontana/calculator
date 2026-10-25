@@ -30,8 +30,9 @@ The app supports seven operations: addition, subtraction, multiplication, divisi
 | `Backspace` | delete last digit | `Delete` / `Esc` | clear entry (CE) / clear all (C) |
 
 | Desktop (≥ 1024px) | Tablet (≥ 768px) | Mobile (< 480px) |
-|---|---|---|
-| ![Desktop](docs/screenshots/desktop.png) | ![Tablet](docs/screenshots/tablet-sqrt.png) | ![Mobile with error](docs/screenshots/mobile-error.png) |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/desktop.png" alt="Desktop: 2 ^ 10 = 1,024" height="380"> | <img src="docs/screenshots/tablet-sqrt.png" alt="Tablet: 12 + square root of 9, with the pending + highlighted" height="380"> | <img src="docs/screenshots/mobile-error.png" alt="Mobile: division by zero error" height="380"> |
+| `2 ^ 10 =` | `12 + √(9)`, with `+` pending | division by zero |
 
 ## 2. Architecture
 
