@@ -1,0 +1,79 @@
+# Each service is versioned and released on its own (backend/vX.Y.Z and
+# frontend/vX.Y.Z tags). By default both are built locally and tagged "dev";
+# set *_IMAGE and *_TAG to run published images instead, e.g.
+#   BACKEND_IMAGE=ghcr.io/<owner>/calculator-backend BACKEND_TAG=1.0.0 \
+#   FRONTEND_IMAGE=ghcr.io/<owner>/calculator-frontend FRONTEND_TAG=1.0.0 \
+#   docker compose up -d --no-build --pull always
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-calculator-backend}:${BACKEND_TAG:-dev}
+    build:
+      context: ./backend
+      args:
+        VERSION: ${BACKEND_TAG:-dev}
+    # Not published to the host: only reachable by nginx on the internal network.
+    # Scale horizontally with `docker compose up --scale backend=N`; nginx picks
+    # up new replicas within 10s.
+    expose:
+      - "8080"
+    environment:
+      PORT: 8080
+      # Requests arrive same-origin through nginx; CORS only matters if the
+      # API is called from another origin.
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost:3443}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-10}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-20}
+      # The backend is only reachable from the Docker network, so any private
+      # peer is nginx; its X-Real-IP header identifies the real client.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      # Soft memory limit for the Go GC; keep it at ~80% of BACKEND_MEMORY.
+      GOMEMLIMIT: ${BACKEND_GOMEMLIMIT:-100MiB}
+    # Go adapts GOMAXPROCS to the CPU limit; ~35 MiB RSS was measured at 50k req/s.
+    deploy:
+      resources:
+        limits:
+          cpus: "${BACKEND_CPUS:-1.0}"
+          memory: ${BACKEND_MEMORY:-128M}
+          pids: 256
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-calculator-frontend}:${FRONTEND_TAG:-dev}
+    build:
+      context: ./frontend
+      args:
+        VERSION: ${FRONTEND_TAG:-dev}
+        VITE_API_URL: ${VITE_API_URL:-}
+    # nginx runs unprivileged and listens on 8080 (HTTP) and 8443 (HTTPS).
+    ports:
+      - "${HTTP_PORT:-3000}:8080"
+      - "${HTTPS_PORT:-3443}:8443"
+    environment:
+      # Local default: http://localhost:3000 serves the app (no certificate
+      # warning). Use HTTP_MODE=redirect in production to force HTTPS.
+      HTTP_MODE: ${HTTP_MODE:-app}
+      PUBLIC_HTTPS_PORT: ${HTTPS_PORT:-3443}
+      # Keep 0 with the self-signed certificate; 31536000 with a real one.
+      HSTS_MAX_AGE: ${HSTS_MAX_AGE:-0}
+      CSP_CONNECT_SRC: ${CSP_CONNECT_SRC:-'self'}
+    # Production: mount real certificates (fullchain.pem + privkey.pem).
+    # Without them, a self-signed certificate is generated on startup.
+    # volumes:
+    #   - ./certs:/etc/nginx/certs:ro
+    deploy:
+      resources:
+        limits:
+          # nginx terminates TLS and is the first component to saturate;
+          # raise FRONTEND_CPUS first when scaling up.
+          cpus: "${FRONTEND_CPUS:-1.0}"
+          memory: ${FRONTEND_MEMORY:-128M}
+          pids: 256
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

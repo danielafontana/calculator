@@ -1,0 +1,70 @@
+:root {
+  /* System UI font, like the desktop calculators it imitates; no web fonts. */
+  --font-ui: system-ui, -apple-system, 'Segoe UI Variable', 'Segoe UI', Roboto, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-key-gap: 3px;
+
+  --radius-card: 12px;
+  --radius-key: 6px;
+
+  /* Very dark purple background; keys a few shades lighter. */
+  --page: #0d0716;
+  --body: #1a0f2b;
+  --body-border: #2c1f45;
+
+  --display-ink: #f7f2ff;
+  --display-ink-soft: #b6a5d8;
+
+  --key-digit: #3b2a5b;
+  --key-digit-hover: #46346b;
+  --key-digit-active: #33244e;
+  --key-ink: #f7f2ff;
+
+  --key-fn: #2c1f46;
+  --key-fn-hover: #372955;
+  --key-fn-active: #261a3c;
+  --key-fn-ink: #e4d9fa;
+
+  --key-pending: #4b3777;
+  --key-pending-ring: #a68be0;
+
+  --key-equals: #c6a3ff;
+  --key-equals-hover: #d3b7ff;
+  --key-equals-active: #b58ef5;
+  --key-equals-ink: #1a0f2b;
+
+  --danger-bg: #3a1530;
+  --danger-ink: #ffc9d3;
+  --danger-strong: #ff6b88;
+  --focus: #e3cdff;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--display-ink);
+  font-family: var(--font-ui);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+}

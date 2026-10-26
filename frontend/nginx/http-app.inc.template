@@ -1,0 +1,3 @@
+# HTTP_MODE=app (local default in docker compose): the HTTP port serves the
+# app directly, so http://localhost:3000 opens without a certificate warning.
+include /etc/nginx/conf.d/app.inc;
