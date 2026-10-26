@@ -67,6 +67,8 @@ O backend segue o [golang-standards/project-layout](https://github.com/golang-st
 ## 4. Início rápido
 
 ```bash
+git clone https://github.com/danielafontana/calculator-go.git
+cd calculator-go
 docker compose up --build -d
 ```
 
@@ -82,6 +84,8 @@ docker compose up --build -d
 4. `HTTP_PORT=80` e `HTTPS_PORT=443`.
 
 ## 5. Desenvolvimento
+
+Rode cada parte num terminal próprio, começando pelo backend: o servidor de desenvolvimento do frontend repassa o `/api` para ele.
 
 ```bash
 # backend (porta 8080)
@@ -119,6 +123,8 @@ BACKEND_IMAGE=ghcr.io/<owner>/calculator-backend BACKEND_TAG=1.1.0 \
 | `POST` | `/api/v1/calculate` | Corpo `{"operation", "a", "b"}`; `operation` é `add`, `subtract`, `multiply`, `divide`, `power`, `sqrt` ou `percentage`; `sqrt` ignora `b` |
 | `GET` | `/api/v1/operations` | Operações suportadas, com símbolo e descrição |
 | `GET` | `/api/v1/health` | `{"status":"ok","version":"..."}` |
+
+Os exemplos de `curl` usam sintaxe de bash (Linux, macOS, WSL ou Git Bash); no cmd ou no PowerShell do Windows, use a collection do Postman abaixo.
 
 ```bash
 curl -s -X POST http://localhost:3000/api/v1/calculate \
