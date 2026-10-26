@@ -15,7 +15,8 @@ fi
 san="DNS:localhost,IP:127.0.0.1"
 [ "$cn" = "localhost" ] || san="DNS:$cn,$san"
 
-echo "$0: no certificate in $dir, generating a self-signed one for $cn"
+echo "$0: WARNING no certificate in $dir, generating a self-signed one for $cn."
+echo "$0: WARNING browsers will not trust it; mount a real certificate in production."
 mkdir -p "$dir"
 openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
     -subj "/CN=$cn" \

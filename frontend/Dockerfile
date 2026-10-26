@@ -21,6 +21,8 @@ USER root
 RUN apk upgrade --no-cache && apk add --no-cache openssl \
     && mkdir -p /etc/nginx/certs && chown nginx:nginx /etc/nginx/certs
 USER nginx
+# HTTP_MODE: "redirect" sends HTTP to HTTPS (default, production); "app" also
+#   serves the app over HTTP (local use, set by docker compose).
 # PUBLIC_HTTPS_PORT: port the browser uses for HTTPS (HTTP -> HTTPS redirect).
 # BACKEND_ADDR: backend host:port on the internal Docker network.
 # NGINX_ENTRYPOINT_LOCAL_RESOLVERS: exposes the container's DNS resolver as
@@ -30,13 +32,14 @@ USER nginx
 #   small CPU quota).
 # CSP_CONNECT_SRC: origins the page may call (add the API origin if external).
 # HSTS_MAX_AGE: keep 0 with self-signed certificates; 31536000 in production.
-ENV PUBLIC_HTTPS_PORT=443 \
+ENV HTTP_MODE=redirect \
+    PUBLIC_HTTPS_PORT=443 \
     BACKEND_ADDR=backend:8080 \
     NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1 \
     NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=1 \
     CSP_CONNECT_SRC="'self'" \
     HSTS_MAX_AGE=0
-COPY nginx/default.conf.template nginx/security-headers.inc.template /etc/nginx/templates/
+COPY nginx/*.template /etc/nginx/templates/
 COPY --chmod=755 nginx/15-self-signed-cert.sh /docker-entrypoint.d/15-self-signed-cert.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080 8443

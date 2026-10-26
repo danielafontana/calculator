@@ -52,6 +52,9 @@ services:
       - "${HTTP_PORT:-3000}:8080"
       - "${HTTPS_PORT:-3443}:8443"
     environment:
+      # Local default: http://localhost:3000 serves the app (no certificate
+      # warning). Use HTTP_MODE=redirect in production to force HTTPS.
+      HTTP_MODE: ${HTTP_MODE:-app}
       PUBLIC_HTTPS_PORT: ${HTTPS_PORT:-3443}
       # Keep 0 with the self-signed certificate; 31536000 with a real one.
       HSTS_MAX_AGE: ${HSTS_MAX_AGE:-0}

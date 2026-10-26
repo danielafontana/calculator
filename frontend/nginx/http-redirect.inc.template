@@ -1,0 +1,5 @@
+# HTTP_MODE=redirect (image default, use in production): everything on the
+# HTTP port is redirected to HTTPS.
+location / {
+    return 301 https://$host:${PUBLIC_HTTPS_PORT}$request_uri;
+}
