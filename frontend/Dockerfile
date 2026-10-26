@@ -14,7 +14,7 @@ ARG VERSION=dev
 RUN printf '{"version":"%s"}\n' "$VERSION" > dist/version.json
 
 # nginx stable branch, running as an unprivileged user (uid 101) on 8080/8443.
-FROM nginxinc/nginx-unprivileged:1.30-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 USER root
 # apk upgrade pulls OS security fixes published after the tag; the certificate
 # directory must be writable by nginx for the self-signed fallback.
