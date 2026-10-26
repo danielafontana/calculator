@@ -17,7 +17,7 @@ The main risks are abuse (denial of service), transport configuration and the so
 |---|---|---|
 | **A01** Broken Access Control | ✅ | No private resources. Routes bound to one method (405 otherwise); backend not exposed to the internet (internal Docker network only); CORS restricted to configured origins; nginx has no directory listing and no repository files in the web root |
 | **A02** Security Misconfiguration | ✅ / ⚠️ | Security headers on every response; `server_tokens off`; errors never expose internals (Go types, stack traces); both containers run as non-root users (nginx from `nginx-unprivileged`), with every Linux capability dropped and `no-new-privileges`; Trivy config scan clean. Open: read-only root filesystem |
-| **A03** Software Supply Chain Failures | ✅ | Lockfiles (`go.sum`, `package-lock.json`); `go mod verify` and `npm audit signatures`; `govulncheck`, `npm audit` and Trivy (images) in CI, which fails on fixable HIGH or CRITICAL findings; CycloneDX SBOM per build; Dependabot for Go, npm, Docker and Actions; scheduled weekly CI run; latest stable toolchains (Go 1.27, Node 24 LTS) |
+| **A03** Software Supply Chain Failures | ✅ | Lockfiles (`go.sum`, `package-lock.json`); `go mod verify` and `npm audit signatures`; `govulncheck`, `npm audit` and Trivy (images) in CI, which fails on fixable HIGH or CRITICAL findings; CycloneDX SBOM per build; Dependabot for Go, npm, Docker and Actions; scheduled weekly CI run; current toolchains (Go 1.27, Node 26) |
 | **A04** Cryptographic Failures | ✅ | TLS 1.2/1.3 only; TLS 1.2 limited to ECDHE + AEAD (no CBC, no static RSA key exchange); TLS 1.3 with hybrid post-quantum key exchange (X25519MLKEM768). `HTTP_MODE=redirect` (image default) forces HTTPS; the local `docker compose` default serves the app over HTTP on localhost for convenience, and the [production checklist](README.md#production-checklist) covers the switch. A warning is logged when the self-signed certificate is in use |
 | **A05** Injection | ✅ | No SQL, shell or server-side templates. JSON decoded into fixed types (`float64`, validated enum); JSON logs (`slog`) prevent log line injection; React escapes all output; CSP without `unsafe-inline` |
 | **A06** Insecure Design | ✅ | Validation in both tiers; explicit limits (1 MiB body, 10s timeouts, rate limit); misuse-case tests (overflow, NaN, large body, IP rotation, forged headers) |
@@ -68,7 +68,7 @@ One JSON line per request (`log/slog`) with `request_id`, `client_ip`, method, p
 |---|---|---|
 | Low | Read-only root filesystem (`read_only: true` with `tmpfs` for the paths nginx writes at startup) | A02 |
 | Low | React ErrorBoundary, so a rendering error does not leave a blank screen | A10 |
-| Low | Move from ESLint 8 (end of life) to ESLint 9 with flat config. Affects the build only, not the final image | A03 |
+| Low | Migrate to ESLint 10 with the flat config (`eslint.config.js`); it also unblocks `eslint-plugin-react-refresh` 0.5. TypeScript stays below 6.1 until `typescript-eslint` supports it. Dependabot ignores these updates meanwhile. Build-only: not in the final image | A03 |
 | Info | `DisallowUnknownFields` in the JSON decoder | A05 |
 
 ## Reporting a vulnerability

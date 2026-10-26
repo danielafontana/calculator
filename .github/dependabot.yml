@@ -17,6 +17,16 @@ updates:
         dependency-type: development
       npm-prod:
         dependency-type: production
+    ignore:
+      # typescript-eslint 8 supports TypeScript < 6.1.
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
+      # ESLint 10 and react-refresh 0.5 need the flat config (eslint.config.js);
+      # they are updated together with that migration.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint-plugin-react-refresh
+        versions: [">=0.5.0"]
 
   - package-ecosystem: docker
     directories:
@@ -24,6 +34,11 @@ updates:
       - /frontend
     schedule:
       interval: weekly
+    ignore:
+      # A Node major also needs frontend/.nvmrc (used by CI and local
+      # development), which Dependabot does not update; it is bumped by hand.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

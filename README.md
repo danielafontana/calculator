@@ -25,7 +25,7 @@ Also in this repository: [SECURITY.md](SECURITY.md) (OWASP Top 10:2025 review), 
 
 ```
 ┌──────────────────────────── Browser ────────────────────────────┐
-│  React 18 + TS (Vite)                                           │
+│  React 19 + TS (Vite)                                           │
 │  components ──► hooks (useKeypad, useCalculator) ──► api.ts     │
 │  (UI only)      (keypad state machine)      (fetch /api, 10s)   │
 └───────────────────────────────┬─────────────────────────────────┘
@@ -62,13 +62,13 @@ The backend follows [golang-standards/project-layout](https://github.com/golang-
 ## 3. Prerequisites
 
 - **To run:** [Docker](https://docs.docker.com/engine/install/) with Compose v2.
-- **To develop:** [Go 1.27](https://go.dev/dl/) and [Node.js 24 LTS](https://nodejs.org/) (24.15+; `nvm use` reads `frontend/.nvmrc`). Optional: [golangci-lint v2](https://golangci-lint.run/) and `make`.
+- **To develop:** [Go 1.27](https://go.dev/dl/) and [Node.js 26](https://nodejs.org/) (`nvm use` reads `frontend/.nvmrc`; 24.15+ also works). Optional: [golangci-lint v2](https://golangci-lint.run/) and `make`.
 
 ## 4. Quick start
 
 ```bash
-git clone https://github.com/danielafontana/calculator-go.git
-cd calculator-go
+git clone https://github.com/danielafontana/calculator.git
+cd calculator
 docker compose up --build -d
 ```
 
